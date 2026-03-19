@@ -6,6 +6,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/auth/:path*",
+      "destination": "https://hail-app.onrender.com/api/auth/:path*"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
