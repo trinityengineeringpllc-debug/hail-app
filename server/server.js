@@ -19,15 +19,16 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => {
     console.error("MongoDB connection error:", err.message);
-    process.exit(1);
+    // Don't exit — Render will keep the process alive; fix Atlas IP whitelist
   });
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
+const allowedOrigin = (process.env.APP_URL || "http://localhost:5173").trim();
 app.use(
   cors({
-    origin: process.env.APP_URL || "http://localhost:5173",
+    origin: allowedOrigin,
     credentials: true,
   })
 );
