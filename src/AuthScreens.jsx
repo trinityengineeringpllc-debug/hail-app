@@ -1,0 +1,651 @@
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const T = {
+  bg:         "#03070f",
+  panel:      "#060d1a",
+  border:     "#17325f",
+  borderSoft: "#102240",
+  text:       "#eef3ff",
+  muted:      "#7ea2df",
+  muted2:     "#4d6797",
+  blue:       "#76a8ff",
+  blueBright: "#8db7ff",
+  button:     "#5e86f0",
+  buttonText: "#f8fbff",
+  white:      "#ffffff",
+};
+
+// ─── Animation variants ───────────────────────────────────────────────────────
+const pageVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.4 } },
+  exit:    { opacity: 0, transition: { duration: 0.25 } },
+};
+
+const cardVariants = {
+  initial: { opacity: 0, y: 28, scale: 0.97 },
+  animate: {
+    opacity: 1, y: 0, scale: 1,
+    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+  },
+  exit: {
+    opacity: 0, y: -16, scale: 0.97,
+    transition: { duration: 0.22, ease: "easeIn" },
+  },
+};
+
+const itemVariants = {
+  initial: { opacity: 0, y: 14 },
+  animate: (i) => ({
+    opacity: 1, y: 0,
+    transition: { delay: 0.15 + i * 0.07, duration: 0.35, ease: "easeOut" },
+  }),
+};
+
+const logoVariants = {
+  initial: { opacity: 0, scale: 0.85, y: -10 },
+  animate: {
+    opacity: 1, scale: 1, y: 0,
+    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+const shakeVariants = {
+  shake: {
+    x: [0, -8, 8, -6, 6, -3, 3, 0],
+    transition: { duration: 0.45 },
+  },
+};
+
+// ─── Animated background orbs ─────────────────────────────────────────────────
+function BgOrbs() {
+  return (
+    <div style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+      <motion.div
+        animate={{ x: [0, 30, -20, 0], y: [0, -40, 20, 0], scale: [1, 1.15, 0.95, 1] }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+        style={{
+          position: "absolute",
+          top: "-10%",
+          left: "20%",
+          width: 480,
+          height: 480,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(94,134,240,0.13) 0%, transparent 70%)",
+          filter: "blur(40px)",
+        }}
+      />
+      <motion.div
+        animate={{ x: [0, -25, 15, 0], y: [0, 30, -20, 0], scale: [1, 0.9, 1.1, 1] }}
+        transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+        style={{
+          position: "absolute",
+          bottom: "-5%",
+          right: "15%",
+          width: 360,
+          height: 360,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(118,168,255,0.09) 0%, transparent 70%)",
+          filter: "blur(50px)",
+        }}
+      />
+      <motion.div
+        animate={{ x: [0, 20, -10, 0], y: [0, -15, 25, 0] }}
+        transition={{ duration: 26, repeat: Infinity, ease: "easeInOut", delay: 8 }}
+        style={{
+          position: "absolute",
+          top: "40%",
+          left: "-5%",
+          width: 280,
+          height: 280,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(30,60,120,0.18) 0%, transparent 70%)",
+          filter: "blur(35px)",
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── Shared Input Field ───────────────────────────────────────────────────────
+function Field({ type = "text", placeholder, value, onChange, onKeyDown }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <motion.input
+      whileFocus={{ borderColor: T.blue }}
+      type={type}
+      value={value}
+      onChange={onChange}
+      onKeyDown={onKeyDown}
+      placeholder={placeholder}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%",
+        background: "rgba(1,4,10,0.85)",
+        color: T.text,
+        border: `1px solid ${focused ? T.blue : T.border}`,
+        borderRadius: 10,
+        padding: "13px 16px",
+        fontSize: 14,
+        outline: "none",
+        fontFamily: "Inter, Arial, sans-serif",
+        boxSizing: "border-box",
+        boxShadow: focused ? `0 0 0 3px rgba(118,168,255,0.1)` : "none",
+        transition: "border-color 0.2s, box-shadow 0.2s",
+      }}
+    />
+  );
+}
+
+// ─── Primary Button ───────────────────────────────────────────────────────────
+function PrimaryBtn({ onClick, disabled, loading, children }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      disabled={disabled}
+      whileHover={disabled ? {} : { scale: 1.02, boxShadow: "0 0 36px rgba(94,134,240,0.5)" }}
+      whileTap={disabled ? {} : { scale: 0.97 }}
+      animate={loading ? { opacity: [1, 0.55, 1] } : { opacity: 1 }}
+      transition={loading ? { repeat: Infinity, duration: 1.1 } : { type: "spring", stiffness: 400, damping: 20 }}
+      style={{
+        width: "100%",
+        border: "none",
+        borderRadius: 10,
+        padding: "14px 16px",
+        background: disabled && !loading ? "rgba(94,134,240,0.5)" : T.button,
+        color: T.buttonText,
+        fontWeight: 800,
+        fontSize: 14,
+        letterSpacing: "0.04em",
+        cursor: disabled ? "default" : "pointer",
+        boxShadow: "0 0 24px rgba(94,134,240,0.25)",
+        fontFamily: "Inter, Arial, sans-serif",
+        marginTop: 18,
+      }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+// ─── Link button ──────────────────────────────────────────────────────────────
+function LinkBtn({ onClick, children, fontSize = 13 }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ color: T.blueBright }}
+      style={{
+        color: T.blue,
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontSize,
+        padding: 0,
+        fontFamily: "Inter, Arial, sans-serif",
+        textDecoration: "underline",
+        textUnderlineOffset: 3,
+      }}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+// ─── Alert ────────────────────────────────────────────────────────────────────
+function Alert({ message, type = "error" }) {
+  return (
+    <AnimatePresence>
+      {message && (
+        <motion.div
+          key={message}
+          variants={shakeVariants}
+          animate="shake"
+          initial={{ opacity: 0, y: -6 }}
+          exit={{ opacity: 0, y: -4 }}
+          style={{
+            marginTop: 12,
+            padding: "10px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            background: type === "error" ? "rgba(255,80,80,0.08)" : "rgba(76,175,126,0.08)",
+            border: `1px solid ${type === "error" ? "rgba(255,80,80,0.28)" : "rgba(76,175,126,0.28)"}`,
+            color: type === "error" ? "#ff9f9f" : "#7ef4a0",
+          }}
+        >
+          {message}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Divider ──────────────────────────────────────────────────────────────────
+function Divider() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "22px 0" }}>
+      <div style={{ flex: 1, height: 1, background: T.borderSoft }} />
+      <span style={{ color: T.muted2, fontSize: 11, fontFamily: '"IBM Plex Mono", monospace' }}>or</span>
+      <div style={{ flex: 1, height: 1, background: T.borderSoft }} />
+    </div>
+  );
+}
+
+// ─── Auth Page Shell (background + card) ─────────────────────────────────────
+function AuthPage({ children }) {
+  return (
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      style={{
+        minHeight: "100vh",
+        background: T.bg,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px 16px",
+        fontFamily: "Inter, Arial, sans-serif",
+        position: "relative",
+      }}
+    >
+      <BgOrbs />
+
+      {/* Top logo bar */}
+      <motion.div
+        variants={logoVariants}
+        initial="initial"
+        animate="animate"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          marginBottom: 32,
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <img
+          src="/swi-logo.png"
+          alt="Severe Weather Intelligence"
+          style={{ height: 130, width: "auto", objectFit: "contain" }}
+        />
+        <div style={{ width: 1, height: 72, background: T.border }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ color: T.muted2, fontSize: 11, letterSpacing: "0.2em", fontFamily: '"IBM Plex Mono", monospace' }}>BY</span>
+          <img
+            src="/trinity-logo.png"
+            alt="Trinity Engineering"
+            style={{ height: 52, width: "auto", objectFit: "contain" }}
+          />
+        </div>
+      </motion.div>
+
+      {/* Card */}
+      <motion.div
+        className="hail-auth-card"
+        variants={cardVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        style={{
+          width: "100%",
+          maxWidth: 440,
+          background: T.panel,
+          border: `1px solid ${T.border}`,
+          borderRadius: 18,
+          padding: "32px 36px",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(118,168,255,0.05)",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {children}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── Section title + subtitle inside card ─────────────────────────────────────
+function CardTitle({ title, subtitle, index = 0 }) {
+  return (
+    <motion.div
+      custom={index}
+      variants={itemVariants}
+      initial="initial"
+      animate="animate"
+      style={{ textAlign: "center", marginBottom: 24 }}
+    >
+      <div style={{ fontWeight: 800, fontSize: 20, color: T.white, letterSpacing: "-0.01em", marginBottom: 6 }}>
+        {title}
+      </div>
+      {subtitle && (
+        <div style={{ color: T.muted2, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: '"IBM Plex Mono", monospace' }}>
+          {subtitle}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGIN SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+export function LoginScreen({ onLoginSuccess, onGoSignup, onGoForgot }) {
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  async function handleLogin() {
+    if (!email || !password) { setError("Please enter your email and password."); return; }
+    setLoading(true); setError("");
+    try {
+      const res  = await fetch("/api/auth/login", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Login failed.");
+      onLoginSuccess(data.user);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <AuthPage>
+      <CardTitle title="Welcome back" subtitle="Authorized access only" index={0} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {[
+          { ph: "Email address", type: "email",    val: email,    set: setEmail },
+          { ph: "Password",      type: "password",  val: password, set: setPassword, kd: handleLogin },
+        ].map(({ ph, type, val, set, kd }, i) => (
+          <motion.div key={ph} custom={i + 1} variants={itemVariants} initial="initial" animate="animate">
+            <Field type={type} placeholder={ph} value={val} onChange={(e) => set(e.target.value)} onKeyDown={kd ? (e) => e.key === "Enter" && kd() : undefined} />
+          </motion.div>
+        ))}
+      </div>
+
+      <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate" style={{ marginTop: 10, textAlign: "right" }}>
+        <LinkBtn onClick={onGoForgot} fontSize={12}>Forgot password?</LinkBtn>
+      </motion.div>
+
+      <Alert message={error} />
+
+      <motion.div custom={4} variants={itemVariants} initial="initial" animate="animate">
+        <PrimaryBtn onClick={handleLogin} disabled={loading} loading={loading}>
+          {loading ? "Signing in…" : "Sign in"}
+        </PrimaryBtn>
+      </motion.div>
+
+      <motion.div custom={5} variants={itemVariants} initial="initial" animate="animate">
+        <Divider />
+        <div style={{ textAlign: "center", color: T.muted2, fontSize: 13 }}>
+          Don't have an account?{" "}
+          <LinkBtn onClick={onGoSignup}>Create account</LinkBtn>
+        </div>
+      </motion.div>
+    </AuthPage>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SIGNUP SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+export function SignupScreen({ onSignupSuccess, onGoLogin }) {
+  const [name, setName]         = useState("");
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  async function handleSignup() {
+    if (!name || !email || !password || !confirm) { setError("All fields are required."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm)  { setError("Passwords do not match."); return; }
+    setLoading(true); setError("");
+    try {
+      const res  = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Signup failed.");
+      onSignupSuccess(data.user);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  }
+
+  const strength = password.length < 8 ? { w: "25%", c: "#e05555", l: "Weak" }
+                 : password.length < 12 ? { w: "60%", c: "#e09c35", l: "Good" }
+                 : { w: "100%", c: "#4caf7e", l: "Strong" };
+
+  return (
+    <AuthPage>
+      <CardTitle title="Create account" subtitle="Join Severe Weather Intelligence" index={0} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {[
+          { ph: "Full name",                  type: "text",     val: name,     set: setName },
+          { ph: "Email address",              type: "email",    val: email,    set: setEmail },
+          { ph: "Password (min. 8 chars)",    type: "password", val: password, set: setPassword },
+          { ph: "Confirm password",           type: "password", val: confirm,  set: setConfirm, kd: handleSignup },
+        ].map(({ ph, type, val, set, kd }, i) => (
+          <motion.div key={ph} custom={i + 1} variants={itemVariants} initial="initial" animate="animate">
+            <Field type={type} placeholder={ph} value={val} onChange={(e) => set(e.target.value)} onKeyDown={kd ? (e) => e.key === "Enter" && kd() : undefined} />
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Password strength bar */}
+      <AnimatePresence>
+        {password.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}
+          >
+            <div style={{ flex: 1, height: 3, borderRadius: 3, background: T.borderSoft, overflow: "hidden" }}>
+              <motion.div
+                animate={{ width: strength.w, background: strength.c }}
+                transition={{ duration: 0.35 }}
+                style={{ height: "100%", borderRadius: 3 }}
+              />
+            </div>
+            <motion.span
+              animate={{ color: strength.c }}
+              style={{ fontSize: 10, fontFamily: '"IBM Plex Mono", monospace', minWidth: 44 }}
+            >
+              {strength.l}
+            </motion.span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Alert message={error} />
+
+      <motion.div custom={5} variants={itemVariants} initial="initial" animate="animate">
+        <PrimaryBtn onClick={handleSignup} disabled={loading} loading={loading}>
+          {loading ? "Creating account…" : "Create account"}
+        </PrimaryBtn>
+      </motion.div>
+
+      <motion.div custom={6} variants={itemVariants} initial="initial" animate="animate">
+        <Divider />
+        <div style={{ textAlign: "center", color: T.muted2, fontSize: 13 }}>
+          Already have an account?{" "}
+          <LinkBtn onClick={onGoLogin}>Sign in</LinkBtn>
+        </div>
+      </motion.div>
+    </AuthPage>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORGOT PASSWORD SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+export function ForgotPasswordScreen({ onEmailSent, onGoLogin }) {
+  const [email, setEmail]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  async function handleSubmit() {
+    if (!email) { setError("Please enter your email address."); return; }
+    setLoading(true); setError("");
+    try {
+      const res  = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Request failed.");
+      onEmailSent(email);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <AuthPage>
+      <CardTitle title="Reset password" subtitle="Password recovery" index={0} />
+
+      <motion.p custom={1} variants={itemVariants} initial="initial" animate="animate"
+        style={{ color: T.muted, fontSize: 13, marginBottom: 20, marginTop: 0, lineHeight: 1.65, textAlign: "center" }}
+      >
+        Enter your email and we'll send you a secure reset link.
+      </motion.p>
+
+      <motion.div custom={2} variants={itemVariants} initial="initial" animate="animate">
+        <Field type="email" placeholder="Email address" value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+        />
+      </motion.div>
+
+      <Alert message={error} />
+
+      <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate">
+        <PrimaryBtn onClick={handleSubmit} disabled={loading} loading={loading}>
+          {loading ? "Sending…" : "Send reset link"}
+        </PrimaryBtn>
+      </motion.div>
+
+      <motion.div custom={4} variants={itemVariants} initial="initial" animate="animate"
+        style={{ marginTop: 20, textAlign: "center" }}
+      >
+        <LinkBtn onClick={onGoLogin}>← Back to sign in</LinkBtn>
+      </motion.div>
+    </AuthPage>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHECK EMAIL SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+export function CheckEmailScreen({ email, onGoLogin }) {
+  return (
+    <AuthPage>
+      <div style={{ textAlign: "center" }}>
+        {/* Animated envelope */}
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
+          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.1 }}
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: 72, height: 72, borderRadius: "50%",
+            background: "rgba(94,134,240,0.1)",
+            border: `1px solid ${T.border}`,
+            marginBottom: 22,
+          }}
+        >
+          <motion.svg
+            width="32" height="32" viewBox="0 0 24 24" fill="none"
+            animate={{ y: [0, -3, 0] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke="#76a8ff" strokeWidth="1.8" />
+            <path d="M2 7l10 7 10-7" stroke="#76a8ff" strokeWidth="1.8" strokeLinecap="round" />
+          </motion.svg>
+        </motion.div>
+
+        <motion.div custom={1} variants={itemVariants} initial="initial" animate="animate"
+          style={{ fontWeight: 800, fontSize: 20, color: T.white, marginBottom: 10 }}
+        >
+          Check your email
+        </motion.div>
+
+        <motion.p custom={2} variants={itemVariants} initial="initial" animate="animate"
+          style={{ color: T.muted, fontSize: 13, lineHeight: 1.7, marginBottom: 22 }}
+        >
+          We sent a password reset link to{" "}
+          <span style={{ color: T.blue, fontWeight: 600 }}>{email}</span>.
+          <br />The link expires in 1 hour.
+        </motion.p>
+
+        <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate"
+          style={{
+            background: "#020810", border: `1px solid ${T.borderSoft}`,
+            borderRadius: 10, padding: "12px 16px",
+            color: T.muted2, fontSize: 12, marginBottom: 24, lineHeight: 1.6,
+          }}
+        >
+          Didn't receive it? Check your spam folder or{" "}
+          <LinkBtn onClick={() => window.location.reload()} fontSize={12}>try again</LinkBtn>.
+        </motion.div>
+
+        <motion.div custom={4} variants={itemVariants} initial="initial" animate="animate">
+          <LinkBtn onClick={onGoLogin}>← Back to sign in</LinkBtn>
+        </motion.div>
+      </div>
+    </AuthPage>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESET PASSWORD SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+export function ResetPasswordScreen({ token, onResetSuccess }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  async function handleReset() {
+    if (!password || !confirm) { setError("Both fields are required."); return; }
+    if (password.length < 8)   { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm)  { setError("Passwords do not match."); return; }
+    setLoading(true); setError("");
+    try {
+      const res  = await fetch("/api/auth/reset-password", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, password }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Reset failed.");
+      window.history.replaceState({}, document.title, "/");
+      onResetSuccess(data.user);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <AuthPage>
+      <CardTitle title="Set new password" subtitle="Choose a strong password" index={0} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {[
+          { ph: "New password (min. 8 chars)", type: "password", val: password, set: setPassword },
+          { ph: "Confirm new password",        type: "password", val: confirm,  set: setConfirm, kd: handleReset },
+        ].map(({ ph, type, val, set, kd }, i) => (
+          <motion.div key={ph} custom={i + 1} variants={itemVariants} initial="initial" animate="animate">
+            <Field type={type} placeholder={ph} value={val} onChange={(e) => set(e.target.value)} onKeyDown={kd ? (e) => e.key === "Enter" && kd() : undefined} />
+          </motion.div>
+        ))}
+      </div>
+
+      <Alert message={error} />
+
+      <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate">
+        <PrimaryBtn onClick={handleReset} disabled={loading} loading={loading}>
+          {loading ? "Resetting password…" : "Reset password"}
+        </PrimaryBtn>
+      </motion.div>
+    </AuthPage>
+  );
+}
