@@ -1062,57 +1062,78 @@ function PdfPageShell({ children, showTopHeader = false, preview = false }) {
       {showTopHeader ? (
         <div
           style={{
-            height: 92,
             background: theme.headerBg,
             borderBottom: `1px solid ${theme.borderSoft}`,
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             padding: "10px 16px 10px 14px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <LogoMark />
-            <div>
-              <div
+          {/* Left — data source badge */}
+          <div
+            style={{
+              color: theme.muted2,
+              fontSize: 8,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontFamily: '"IBM Plex Mono", monospace',
+              lineHeight: 1.55,
+              paddingTop: 2,
+            }}
+          >
+            <div>DATA SOURCE: NOAA NWS</div>
+            <div>NCEI STORM EVENTS DB</div>
+          </div>
+
+          {/* Center — stacked logo block matching app header */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <img
+              src="/swi-logo.png"
+              alt="Severe Weather Intelligence"
+              style={{ height: 52, width: "auto", objectFit: "contain" }}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
                 style={{
-                  color: theme.white,
-                  fontWeight: 800,
-                  fontSize: 19,
-                  letterSpacing: 0.4,
-                }}
-              >
-                SEVERE WEATHER INTELLIGENCE
-              </div>
-              <div
-                style={{
+                  fontFamily: "Montserrat, Arial, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 9,
+                  letterSpacing: "0.28em",
                   color: theme.muted2,
-                  fontSize: 9.5,
-                  letterSpacing: 3,
                   textTransform: "uppercase",
-                  fontFamily: '"IBM Plex Mono", monospace',
-                  marginTop: 5,
                 }}
               >
-                NOAA storm events database · 5-year lookback
-              </div>
+                BY
+              </span>
+              <img
+                src="/trinity-logo.png"
+                alt="Trinity Engineering"
+                style={{ height: 20, width: "auto", objectFit: "contain" }}
+              />
+            </div>
+            <div
+              style={{
+                color: theme.muted2,
+                fontSize: 7.5,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                fontFamily: '"IBM Plex Mono", monospace',
+              }}
+            >
+              NOAA STORM EVENTS DATABASE · 5-YEAR LOOKBACK
             </div>
           </div>
 
-          <div
-            style={{
-              textAlign: "right",
-              color: theme.muted2,
-              fontSize: 9,
-              letterSpacing: 1.2,
-              textTransform: "uppercase",
-              fontFamily: '"IBM Plex Mono", monospace',
-              lineHeight: 1.35,
-            }}
-          >
-            <div>Data Source: NOAA NWS</div>
-            <div>NCEI Storm Events DB</div>
-          </div>
+          {/* Right — spacer to balance layout */}
+          <div style={{ width: 110 }} />
         </div>
       ) : null}
 
