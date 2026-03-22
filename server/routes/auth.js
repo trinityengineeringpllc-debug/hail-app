@@ -1,6 +1,7 @@
 const express = require("express");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
 const User = require("../models/User");
 
 const router = express.Router();
@@ -145,7 +146,6 @@ router.post("/forgot-password", async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     // Send email via nodemailer
-    const nodemailer = require("nodemailer");
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST || "smtp.gmail.com",
       port: Number(process.env.EMAIL_PORT) || 587,
