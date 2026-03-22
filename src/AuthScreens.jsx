@@ -253,57 +253,73 @@ function AuthPage({ children }) {
         position: "relative",
       }}
     >
+      <style>{`
+        .auth-logo-bar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          margin-bottom: 32px;
+          position: relative;
+          z-index: 1;
+        }
+        .auth-swi-logo { height: 110px; width: auto; object-fit: contain; }
+        .auth-divider  { width: 1px; height: 64px; background: ${T.border}; flex-shrink: 0; }
+        .auth-by-row   { display: flex; align-items: center; gap: 10px; }
+        .auth-by-text  { color: ${T.muted2}; font-size: 11px; letter-spacing: 0.2em; font-family: "IBM Plex Mono", monospace; }
+        .auth-trinity-logo { height: 46px; width: auto; object-fit: contain; }
+        .auth-card {
+          width: 100%;
+          max-width: 440px;
+          background: ${T.panel};
+          border: 1px solid ${T.border};
+          border-radius: 18px;
+          padding: 32px 36px;
+          box-shadow: 0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(118,168,255,0.05);
+          position: relative;
+          z-index: 1;
+          box-sizing: border-box;
+        }
+        @media (max-width: 480px) {
+          .auth-logo-bar { gap: 12px; margin-bottom: 24px; }
+          .auth-swi-logo { height: 72px; }
+          .auth-divider  { height: 44px; }
+          .auth-trinity-logo { height: 30px; }
+          .auth-by-text  { font-size: 9px; letter-spacing: 0.14em; }
+          .auth-card     { padding: 24px 18px; border-radius: 14px; }
+        }
+        @media (max-width: 360px) {
+          .auth-logo-bar { flex-direction: column; gap: 10px; }
+          .auth-divider  { display: none; }
+          .auth-swi-logo { height: 60px; }
+          .auth-trinity-logo { height: 26px; }
+        }
+      `}</style>
+
       <BgOrbs />
 
       {/* Top logo bar */}
       <motion.div
+        className="auth-logo-bar"
         variants={logoVariants}
         initial="initial"
         animate="animate"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          marginBottom: 32,
-          position: "relative",
-          zIndex: 1,
-        }}
       >
-        <img
-          src="/swi-logo.png"
-          alt="Severe Weather Intelligence"
-          style={{ height: 130, width: "auto", objectFit: "contain" }}
-        />
-        <div style={{ width: 1, height: 72, background: T.border }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ color: T.muted2, fontSize: 11, letterSpacing: "0.2em", fontFamily: '"IBM Plex Mono", monospace' }}>BY</span>
-          <img
-            src="/trinity-logo.png"
-            alt="Trinity Engineering"
-            style={{ height: 52, width: "auto", objectFit: "contain" }}
-          />
+        <img src="/swi-logo.png" alt="Severe Weather Intelligence" className="auth-swi-logo" />
+        <div className="auth-divider" />
+        <div className="auth-by-row">
+          <span className="auth-by-text">BY</span>
+          <img src="/trinity-logo.png" alt="Trinity Engineering" className="auth-trinity-logo" />
         </div>
       </motion.div>
 
       {/* Card */}
       <motion.div
-        className="hail-auth-card"
+        className="auth-card hail-auth-card"
         variants={cardVariants}
         initial="initial"
         animate="animate"
         exit="exit"
-        style={{
-          width: "100%",
-          maxWidth: 440,
-          background: T.panel,
-          border: `1px solid ${T.border}`,
-          borderRadius: 18,
-          padding: "32px 36px",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(118,168,255,0.05)",
-          position: "relative",
-          zIndex: 1,
-        }}
       >
         {children}
       </motion.div>

@@ -483,7 +483,7 @@ function AppHeader({ onLogout }) {
           text-transform: uppercase;
         }
         .hail-header-trinity {
-          height: 52px;
+          height: 64px;
           width: auto;
           object-fit: contain;
         }
@@ -515,7 +515,7 @@ function AppHeader({ onLogout }) {
             align-self: unset;
           }
           .hail-header-swi { height: 44px; }
-          .hail-header-trinity { height: 32px; }
+          .hail-header-trinity { height: 40px; }
           .hail-header-tagline { font-size: 8.5px; letter-spacing: 0.14em; }
         }
         @media (max-width: 768px) {
@@ -524,7 +524,7 @@ function AppHeader({ onLogout }) {
         }
         @media (max-width: 480px) {
           .hail-header-swi { height: 36px; }
-          .hail-header-trinity { height: 24px; }
+          .hail-header-trinity { height: 30px; }
           .hail-header-by { font-size: 8px; }
         }
       `}</style>
