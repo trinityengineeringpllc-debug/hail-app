@@ -154,27 +154,32 @@ router.post("/forgot-password", async (req, res) => {
       },
     });
 
-    await transporter.sendMail({
-      from: `"Severe Weather Intelligence" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: "Reset your password",
-      html: `
-        <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
-          <h2 style="color: #76a8ff; margin-top: 0;">Reset your password</h2>
-          <p style="color: #7ea2df;">Hi ${user.name},</p>
-          <p style="color: #7ea2df;">We received a request to reset your password. Click the button below to create a new password. This link expires in 1 hour.</p>
-          <a href="${resetUrl}" style="display: inline-block; margin: 20px 0; padding: 13px 28px; background: #5e86f0; color: #f8fbff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">
-            Reset Password
-          </a>
-          <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
-          <p style="color: #4d6797; font-size: 11px; word-break: break-all;">Or copy this link: ${resetUrl}</p>
-        </div>
-      `,
-    });
+    try {
+      await transporter.sendMail({
+        from: `"Severe Weather Intelligence" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: "Reset your password",
+        html: `
+          <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
+            <h2 style="color: #76a8ff; margin-top: 0;">Reset your password</h2>
+            <p style="color: #7ea2df;">Hi ${user.name},</p>
+            <p style="color: #7ea2df;">We received a request to reset your password. Click the button below to create a new password. This link expires in 1 hour.</p>
+            <a href="${resetUrl}" style="display: inline-block; margin: 20px 0; padding: 13px 28px; background: #5e86f0; color: #f8fbff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">
+              Reset Password
+            </a>
+            <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
+            <p style="color: #4d6797; font-size: 11px; word-break: break-all;">Or copy this link: ${resetUrl}</p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error("Email send failed:", emailErr.message);
+    }
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to send reset email." });
+    console.error("forgot-password error:", err.message);
+    res.json({ success: true }); // always return success to avoid 502 leaking errors
   }
 });
 
