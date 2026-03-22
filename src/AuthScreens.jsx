@@ -528,7 +528,7 @@ export function ForgotPasswordScreen({ onEmailSent, onGoLogin }) {
       <motion.p custom={1} variants={itemVariants} initial="initial" animate="animate"
         style={{ color: T.muted, fontSize: 13, marginBottom: 20, marginTop: 0, lineHeight: 1.65, textAlign: "center" }}
       >
-        Enter your email and we'll send you a secure reset link.
+        Enter your email and we'll send you a secure reset code.
       </motion.p>
 
       <motion.div custom={2} variants={itemVariants} initial="initial" animate="animate">
