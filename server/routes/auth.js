@@ -1,7 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
 const User = require("../models/User");
 
 const router = express.Router();
@@ -143,35 +142,44 @@ router.post("/forgot-password", async (req, res) => {
     const appUrl = process.env.APP_URL || "http://localhost:5173";
     const resetUrl = `${appUrl}?token=${rawToken}`;
 
-    // Send email
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    // Send email via Resend HTTP API (avoids SMTP port blocking on Render)
+    const emailHtml = `
+      <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
+        <h2 style="color: #76a8ff; margin-top: 0;">Reset your password</h2>
+        <p style="color: #7ea2df;">Hi ${user.name},</p>
+        <p style="color: #7ea2df;">We received a request to reset your password. Click the button below to create a new password. This link expires in 1 hour.</p>
+        <a href="${resetUrl}" style="display: inline-block; margin: 20px 0; padding: 13px 28px; background: #5e86f0; color: #f8fbff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">
+          Reset Password
+        </a>
+        <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
+        <p style="color: #4d6797; font-size: 11px; word-break: break-all;">Or copy this link: ${resetUrl}</p>
+      </div>
+    `;
 
     try {
-      await transporter.sendMail({
-        from: `"Severe Weather Intelligence" <${process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: "Reset your password",
-        html: `
-          <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
-            <h2 style="color: #76a8ff; margin-top: 0;">Reset your password</h2>
-            <p style="color: #7ea2df;">Hi ${user.name},</p>
-            <p style="color: #7ea2df;">We received a request to reset your password. Click the button below to create a new password. This link expires in 1 hour.</p>
-            <a href="${resetUrl}" style="display: inline-block; margin: 20px 0; padding: 13px 28px; background: #5e86f0; color: #f8fbff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">
-              Reset Password
-            </a>
-            <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
-            <p style="color: #4d6797; font-size: 11px; word-break: break-all;">Or copy this link: ${resetUrl}</p>
-          </div>
-        `,
+      const resendKey = process.env.RESEND_API_KEY;
+      if (!resendKey) throw new Error("RESEND_API_KEY not set");
+
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "Severe Weather Intelligence <onboarding@resend.dev>",
+          to: user.email,
+          subject: "Reset your password",
+          html: emailHtml,
+        }),
       });
+
+      if (!emailRes.ok) {
+        const errBody = await emailRes.text();
+        console.error("Resend API error:", errBody);
+      } else {
+        console.log("Reset email sent to:", user.email);
+      }
     } catch (emailErr) {
       console.error("Email send failed:", emailErr.message);
     }
