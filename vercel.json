@@ -6,14 +6,6 @@
   },
   "rewrites": [
     {
-      "source": "/api/auth/:path*",
-      "destination": "https://hail-app.onrender.com/api/auth/:path*"
-    },
-    {
-      "source": "/api/anthropic",
-      "destination": "https://hail-app.onrender.com/api/anthropic"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },
