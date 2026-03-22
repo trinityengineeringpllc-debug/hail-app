@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
+const API = import.meta.env.VITE_RENDER_URL || "";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import {
   LoginScreen,
@@ -1606,7 +1608,7 @@ export default function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch("/api/auth/session", { credentials: "include" });
+        const res = await fetch(`${API}/api/auth/session`, { credentials: "include" });
         const data = await parseResponseJson(res, "Session API");
         if (data?.authenticated) {
           setAuthenticated(true);
@@ -1682,7 +1684,7 @@ export default function App() {
 
   async function handleLogout() {
     try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+      await fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" });
     } catch {
       // ignore
     }
@@ -1694,7 +1696,7 @@ export default function App() {
   }
 
   async function callAnthropic(messages, useTools = true) {
-    const res = await fetch("/api/anthropic", {
+    const res = await fetch(`${API}/api/anthropic`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

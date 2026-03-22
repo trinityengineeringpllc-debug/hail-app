@@ -13,7 +13,7 @@ function setAuthCookie(res, token) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: isProd,
-    sameSite: "lax",
+    sameSite: isProd ? "none" : "lax", // "none" required for cross-origin cookies
     maxAge: COOKIE_MAX_AGE * 1000,
     path: "/",
   });

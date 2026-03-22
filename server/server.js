@@ -25,13 +25,12 @@ mongoose
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
-const allowedOrigins = (process.env.APP_URL || "http://localhost:5173")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
 app.use(
   cors({
-    origin: (origin, cb) => cb(null, true), // allow all — Vercel proxies server-side
+    origin: (origin, cb) => {
+      // Reflect the request origin back — required for credentials: true cross-origin
+      cb(null, origin || "*");
+    },
     credentials: true,
   })
 );

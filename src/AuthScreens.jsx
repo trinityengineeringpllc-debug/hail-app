@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+const API = import.meta.env.VITE_RENDER_URL || "";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -362,7 +364,7 @@ export function LoginScreen({ onLoginSuccess, onGoSignup, onGoForgot }) {
     if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true); setError("");
     try {
-      const res  = await fetch("/api/auth/login", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const res  = await fetch(`${API}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed.");
       onLoginSuccess(data.user);
@@ -425,7 +427,7 @@ export function SignupScreen({ onSignupSuccess, onGoLogin }) {
     if (password !== confirm)  { setError("Passwords do not match."); return; }
     setLoading(true); setError("");
     try {
-      const res  = await fetch("/api/auth/signup", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
+      const res  = await fetch(`${API}/api/auth/signup`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Signup failed.");
       onSignupSuccess(data.user);
@@ -511,7 +513,7 @@ export function ForgotPasswordScreen({ onEmailSent, onGoLogin }) {
     if (!email) { setError("Please enter your email address."); return; }
     setLoading(true); setError("");
     try {
-      const res  = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const res  = await fetch(`${API}/api/auth/forgot-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed.");
       onEmailSent(email);
@@ -631,7 +633,7 @@ export function ResetPasswordScreen({ token, onResetSuccess }) {
     if (password !== confirm)  { setError("Passwords do not match."); return; }
     setLoading(true); setError("");
     try {
-      const res  = await fetch("/api/auth/reset-password", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, password }) });
+      const res  = await fetch(`${API}/api/auth/reset-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Reset failed.");
       window.history.replaceState({}, document.title, "/");
