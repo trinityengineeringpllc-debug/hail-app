@@ -459,7 +459,7 @@ function AppHeader({ onLogout }) {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
+          gap: 2px;
         }
         .hail-header-swi {
           height: 54px;
@@ -472,7 +472,7 @@ function AppHeader({ onLogout }) {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          margin-top: 2px;
+          margin-top: 0;
         }
         .hail-header-by {
           font-family: "Montserrat", "Inter", sans-serif;
@@ -483,7 +483,7 @@ function AppHeader({ onLogout }) {
           text-transform: uppercase;
         }
         .hail-header-trinity {
-          height: 64px;
+          height: 70px;
           width: auto;
           object-fit: contain;
         }
@@ -493,7 +493,7 @@ function AppHeader({ onLogout }) {
           letter-spacing: 0.20em;
           font-family: "IBM Plex Mono", monospace;
           text-transform: uppercase;
-          margin-top: 3px;
+          margin-top: 1px;
         }
         .hail-header-actions {
           min-width: 130px;
