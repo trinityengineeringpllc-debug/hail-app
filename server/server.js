@@ -103,4 +103,15 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+
+  // Keep-alive ping every 14 minutes to prevent Render free tier sleep
+  if (process.env.NODE_ENV === "production" && process.env.RENDER_EXTERNAL_URL) {
+    setInterval(() => {
+      fetch(`${process.env.RENDER_EXTERNAL_URL}/health`)
+        .then(() => console.log("Keep-alive ping sent"))
+        .catch(() => {});
+    }, 14 * 60 * 1000);
+  }
+});

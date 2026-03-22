@@ -138,36 +138,37 @@ router.post("/forgot-password", async (req, res) => {
     user.resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await user.save({ validateBeforeSave: false });
 
-    // Send email via nodemailer (Gmail SMTP port 465 SSL)
-    const nodemailer = require("nodemailer");
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    // Send email via Resend HTTP API (works on Render — no SMTP port blocking)
+    const emailHtml = `
+      <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
+        <h2 style="color: #76a8ff; margin-top: 0;">Password reset code</h2>
+        <p style="color: #7ea2df;">Hi ${user.name},</p>
+        <p style="color: #7ea2df;">Use the code below to reset your password. It expires in 15 minutes.</p>
+        <div style="margin: 24px 0; text-align: center;">
+          <span style="display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #ffffff; background: #0d1f3c; padding: 16px 28px; border-radius: 12px; border: 1px solid #17325f;">${otp}</span>
+        </div>
+        <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
+      </div>
+    `;
 
     try {
-      await transporter.sendMail({
-        from: `"Severe Weather Intelligence" <${process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: "Your password reset code",
-        html: `
-          <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
-            <h2 style="color: #76a8ff; margin-top: 0;">Password reset code</h2>
-            <p style="color: #7ea2df;">Hi ${user.name},</p>
-            <p style="color: #7ea2df;">Use the code below to reset your password. It expires in 15 minutes.</p>
-            <div style="margin: 24px 0; text-align: center;">
-              <span style="display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #ffffff; background: #0d1f3c; padding: 16px 28px; border-radius: 12px; border: 1px solid #17325f;">${otp}</span>
-            </div>
-            <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
-          </div>
-        `,
+      const fromAddress = process.env.EMAIL_FROM || "onboarding@resend.dev";
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `Severe Weather Intelligence <${fromAddress}>`,
+          to: user.email,
+          subject: "Your password reset code",
+          html: emailHtml,
+        }),
       });
-      console.log("OTP email sent to:", user.email);
+      const result = await emailRes.json();
+      if (!emailRes.ok) console.error("Resend error:", JSON.stringify(result));
+      else console.log("OTP email sent to:", user.email);
     } catch (emailErr) {
       console.error("Email send failed:", emailErr.message);
     }
