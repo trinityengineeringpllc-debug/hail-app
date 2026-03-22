@@ -6,8 +6,8 @@ import {
   LoginScreen,
   SignupScreen,
   ForgotPasswordScreen,
-  CheckEmailScreen,
-  ResetPasswordScreen,
+  OtpVerifyScreen,
+  NewPasswordScreen,
 } from "./AuthScreens";
 import { runIDW, IDWPanel } from "./IDWModule";
 import DatePicker from "./DatePicker";
@@ -1577,13 +1577,10 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Auth screen routing: 'login' | 'signup' | 'forgot' | 'check-email' | 'reset'
-  const [authScreen, setAuthScreen] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("token") ? "reset" : "login";
-  });
+  // Auth screen routing: 'login' | 'signup' | 'forgot' | 'otp' | 'new-password'
+  const [authScreen, setAuthScreen] = useState("login");
   const [resetEmail, setResetEmail] = useState("");
-  const resetToken = new URLSearchParams(window.location.search).get("token");
+  const [resetCode, setResetCode]   = useState("");
 
   const [pages, setPages] = useState([]);
   const [layoutReady, setLayoutReady] = useState(false);
@@ -1919,10 +1916,21 @@ Return only valid JSON in the exact schema.`,
   }
 
   if (!authenticated) {
-    if (authScreen === "reset") {
+    if (authScreen === "otp") {
       return (
-        <ResetPasswordScreen
-          token={resetToken}
+        <OtpVerifyScreen
+          email={resetEmail}
+          onVerified={(code) => { setResetCode(code); setAuthScreen("new-password"); }}
+          onGoLogin={() => setAuthScreen("login")}
+          onResend={() => setAuthScreen("forgot")}
+        />
+      );
+    }
+    if (authScreen === "new-password") {
+      return (
+        <NewPasswordScreen
+          email={resetEmail}
+          code={resetCode}
           onResetSuccess={handleAuthSuccess}
         />
       );
@@ -1938,15 +1946,7 @@ Return only valid JSON in the exact schema.`,
     if (authScreen === "forgot") {
       return (
         <ForgotPasswordScreen
-          onEmailSent={(email) => { setResetEmail(email); setAuthScreen("check-email"); }}
-          onGoLogin={() => setAuthScreen("login")}
-        />
-      );
-    }
-    if (authScreen === "check-email") {
-      return (
-        <CheckEmailScreen
-          email={resetEmail}
+          onEmailSent={(email) => { setResetEmail(email); setAuthScreen("otp"); }}
           onGoLogin={() => setAuthScreen("login")}
         />
       );

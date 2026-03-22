@@ -556,72 +556,98 @@ export function ForgotPasswordScreen({ onEmailSent, onGoLogin }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CHECK EMAIL SCREEN
+// OTP VERIFY SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
-export function CheckEmailScreen({ email, onGoLogin }) {
+export function OtpVerifyScreen({ email, onVerified, onGoLogin, onResend }) {
+  const [code, setCode]         = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  async function handleVerify() {
+    const trimmed = code.trim();
+    if (trimmed.length !== 6) { setError("Enter the 6-digit code from your email."); return; }
+    setLoading(true); setError("");
+    try {
+      const res  = await fetch(`${API}/api/auth/verify-otp`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code: trimmed }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Verification failed.");
+      onVerified(trimmed);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  }
+
   return (
     <AuthPage>
-      <div style={{ textAlign: "center" }}>
-        {/* Animated envelope */}
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
         <motion.div
-          initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
-          animate={{ scale: 1, opacity: 1, rotate: 0 }}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.1 }}
           style={{
             display: "inline-flex", alignItems: "center", justifyContent: "center",
-            width: 72, height: 72, borderRadius: "50%",
-            background: "rgba(94,134,240,0.1)",
-            border: `1px solid ${T.border}`,
-            marginBottom: 22,
+            width: 64, height: 64, borderRadius: "50%",
+            background: "rgba(94,134,240,0.1)", border: `1px solid ${T.border}`,
+            marginBottom: 18,
           }}
         >
-          <motion.svg
-            width="32" height="32" viewBox="0 0 24 24" fill="none"
-            animate={{ y: [0, -3, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <rect x="2" y="4" width="20" height="16" rx="2" stroke="#76a8ff" strokeWidth="1.8" />
-            <path d="M2 7l10 7 10-7" stroke="#76a8ff" strokeWidth="1.8" strokeLinecap="round" />
-          </motion.svg>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <rect x="5" y="2" width="14" height="20" rx="2" stroke="#76a8ff" strokeWidth="1.8"/>
+            <path d="M9 10h6M9 14h4" stroke="#76a8ff" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="12" cy="7" r="1" fill="#76a8ff"/>
+          </svg>
         </motion.div>
-
-        <motion.div custom={1} variants={itemVariants} initial="initial" animate="animate"
-          style={{ fontWeight: 800, fontSize: 20, color: T.white, marginBottom: 10 }}
+        <CardTitle title="Enter your code" subtitle="Check your email" index={0} />
+        <motion.p custom={1} variants={itemVariants} initial="initial" animate="animate"
+          style={{ color: T.muted, fontSize: 13, margin: "0 0 20px", lineHeight: 1.65 }}
         >
-          Check your email
-        </motion.div>
-
-        <motion.p custom={2} variants={itemVariants} initial="initial" animate="animate"
-          style={{ color: T.muted, fontSize: 13, lineHeight: 1.7, marginBottom: 22 }}
-        >
-          We sent a password reset link to{" "}
+          We sent a 6-digit code to{" "}
           <span style={{ color: T.blue, fontWeight: 600 }}>{email}</span>.
-          <br />The link expires in 1 hour.
+          <br />It expires in 15 minutes.
         </motion.p>
-
-        <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate"
-          style={{
-            background: "#020810", border: `1px solid ${T.borderSoft}`,
-            borderRadius: 10, padding: "12px 16px",
-            color: T.muted2, fontSize: 12, marginBottom: 24, lineHeight: 1.6,
-          }}
-        >
-          Didn't receive it? Check your spam folder or{" "}
-          <LinkBtn onClick={() => window.location.reload()} fontSize={12}>try again</LinkBtn>.
-        </motion.div>
-
-        <motion.div custom={4} variants={itemVariants} initial="initial" animate="animate">
-          <LinkBtn onClick={onGoLogin}>← Back to sign in</LinkBtn>
-        </motion.div>
       </div>
+
+      <motion.div custom={2} variants={itemVariants} initial="initial" animate="animate">
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="000000"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+          style={{
+            width: "100%", boxSizing: "border-box",
+            background: "rgba(1,4,10,0.85)", color: T.text,
+            border: `1px solid ${T.border}`, borderRadius: 10,
+            padding: "14px 16px", fontSize: 28, fontWeight: 800,
+            letterSpacing: "0.35em", textAlign: "center",
+            outline: "none", fontFamily: "Inter, Arial, sans-serif",
+          }}
+        />
+      </motion.div>
+
+      <Alert message={error} />
+
+      <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate">
+        <PrimaryBtn onClick={handleVerify} disabled={loading} loading={loading}>
+          {loading ? "Verifying…" : "Verify code"}
+        </PrimaryBtn>
+      </motion.div>
+
+      <motion.div custom={4} variants={itemVariants} initial="initial" animate="animate"
+        style={{ marginTop: 20, textAlign: "center", display: "flex", justifyContent: "center", gap: 20 }}
+      >
+        <LinkBtn onClick={onResend} fontSize={12}>Resend code</LinkBtn>
+        <LinkBtn onClick={onGoLogin} fontSize={12}>← Back to sign in</LinkBtn>
+      </motion.div>
     </AuthPage>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RESET PASSWORD SCREEN
+// NEW PASSWORD SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
-export function ResetPasswordScreen({ token, onResetSuccess }) {
+export function NewPasswordScreen({ email, code, onResetSuccess }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [loading, setLoading]   = useState(false);
@@ -633,14 +659,17 @@ export function ResetPasswordScreen({ token, onResetSuccess }) {
     if (password !== confirm)  { setError("Passwords do not match."); return; }
     setLoading(true); setError("");
     try {
-      const res  = await fetch(`${API}/api/auth/reset-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, password }) });
+      const res  = await fetch(`${API}/api/auth/reset-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Reset failed.");
-      window.history.replaceState({}, document.title, "/");
       onResetSuccess(data.user);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }
+
+  const strength = password.length < 8 ? { w: "25%", c: "#e05555", l: "Weak" }
+                 : password.length < 12 ? { w: "60%", c: "#e09c35", l: "Good" }
+                 : { w: "100%", c: "#4caf7e", l: "Strong" };
 
   return (
     <AuthPage>
@@ -657,13 +686,34 @@ export function ResetPasswordScreen({ token, onResetSuccess }) {
         ))}
       </div>
 
+      <AnimatePresence>
+        {password.length > 0 && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}
+          >
+            <div style={{ flex: 1, height: 3, borderRadius: 3, background: T.borderSoft, overflow: "hidden" }}>
+              <motion.div animate={{ width: strength.w, background: strength.c }} transition={{ duration: 0.35 }} style={{ height: "100%", borderRadius: 3 }} />
+            </div>
+            <motion.span animate={{ color: strength.c }} style={{ fontSize: 10, fontFamily: '"IBM Plex Mono", monospace', minWidth: 44 }}>
+              {strength.l}
+            </motion.span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Alert message={error} />
 
       <motion.div custom={3} variants={itemVariants} initial="initial" animate="animate">
         <PrimaryBtn onClick={handleReset} disabled={loading} loading={loading}>
-          {loading ? "Resetting password…" : "Reset password"}
+          {loading ? "Saving…" : "Set new password"}
         </PrimaryBtn>
       </motion.div>
     </AuthPage>
   );
+}
+
+// Keep export name for backwards compat
+export { NewPasswordScreen as ResetPasswordScreen };
+export function CheckEmailScreen({ onGoLogin }) {
+  return null; // replaced by OtpVerifyScreen
 }

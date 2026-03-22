@@ -125,22 +125,18 @@ router.post("/forgot-password", async (req, res) => {
       return res.status(400).json({ error: "Email is required." });
     }
 
-    // Always respond with success to prevent email enumeration
     const user = await User.findOne({ email });
     if (!user) {
-      return res.json({ success: true });
+      return res.json({ success: true }); // prevent email enumeration
     }
 
-    // Generate token
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+    // Generate 6-digit OTP code
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
-    user.resetToken = hashedToken;
-    user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user.resetToken = hashedOtp;
+    user.resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await user.save({ validateBeforeSave: false });
-
-    const appUrl = process.env.APP_URL || "http://localhost:5173";
-    const resetUrl = `${appUrl}?token=${rawToken}`;
 
     // Send email via nodemailer (Gmail SMTP port 465 SSL)
     const nodemailer = require("nodemailer");
@@ -158,21 +154,20 @@ router.post("/forgot-password", async (req, res) => {
       await transporter.sendMail({
         from: `"Severe Weather Intelligence" <${process.env.EMAIL_USER}>`,
         to: user.email,
-        subject: "Reset your password",
+        subject: "Your password reset code",
         html: `
           <div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #03070f; color: #eef3ff; border: 1px solid #17325f; border-radius: 12px; padding: 32px;">
-            <h2 style="color: #76a8ff; margin-top: 0;">Reset your password</h2>
+            <h2 style="color: #76a8ff; margin-top: 0;">Password reset code</h2>
             <p style="color: #7ea2df;">Hi ${user.name},</p>
-            <p style="color: #7ea2df;">We received a request to reset your password. Click the button below to create a new password. This link expires in 1 hour.</p>
-            <a href="${resetUrl}" style="display: inline-block; margin: 20px 0; padding: 13px 28px; background: #5e86f0; color: #f8fbff; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;">
-              Reset Password
-            </a>
+            <p style="color: #7ea2df;">Use the code below to reset your password. It expires in 15 minutes.</p>
+            <div style="margin: 24px 0; text-align: center;">
+              <span style="display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 12px; color: #ffffff; background: #0d1f3c; padding: 16px 28px; border-radius: 12px; border: 1px solid #17325f;">${otp}</span>
+            </div>
             <p style="color: #4d6797; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
-            <p style="color: #4d6797; font-size: 11px; word-break: break-all;">Or copy this link: ${resetUrl}</p>
           </div>
         `,
       });
-      console.log("Reset email sent to:", user.email);
+      console.log("OTP email sent to:", user.email);
     } catch (emailErr) {
       console.error("Email send failed:", emailErr.message);
     }
@@ -180,32 +175,57 @@ router.post("/forgot-password", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error("forgot-password error:", err.message);
-    res.json({ success: true }); // always return success to avoid 502 leaking errors
+    res.json({ success: true });
+  }
+});
+
+// ─── POST /api/auth/verify-otp ────────────────────────────────────────────────
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { email, code } = req.body || {};
+    if (!email || !code) {
+      return res.status(400).json({ error: "Email and code are required." });
+    }
+
+    const hashedOtp = crypto.createHash("sha256").update(String(code)).digest("hex");
+    const user = await User.findOne({
+      email,
+      resetToken: hashedOtp,
+      resetTokenExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired code." });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Verification failed." });
   }
 });
 
 // ─── POST /api/auth/reset-password ───────────────────────────────────────────
 router.post("/reset-password", async (req, res) => {
   try {
-    const { token, password } = req.body || {};
+    const { email, code, password } = req.body || {};
 
-    if (!token || !password) {
-      return res.status(400).json({ error: "Token and new password are required." });
+    if (!email || !code || !password) {
+      return res.status(400).json({ error: "Email, code and new password are required." });
     }
 
     if (password.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters." });
     }
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
+    const hashedOtp = crypto.createHash("sha256").update(String(code)).digest("hex");
     const user = await User.findOne({
-      resetToken: hashedToken,
+      email,
+      resetToken: hashedOtp,
       resetTokenExpiry: { $gt: new Date() },
     });
 
     if (!user) {
-      return res.status(400).json({ error: "Reset link is invalid or has expired." });
+      return res.status(400).json({ error: "Invalid or expired code." });
     }
 
     user.password = password;
@@ -213,7 +233,6 @@ router.post("/reset-password", async (req, res) => {
     user.resetTokenExpiry = null;
     await user.save();
 
-    // Auto-login after reset
     const jwtToken = signToken(user._id);
     setAuthCookie(res, jwtToken);
 
