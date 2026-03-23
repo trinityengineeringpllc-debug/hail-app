@@ -1605,7 +1605,11 @@ export default function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch(`${API}/api/auth/session`, { credentials: "include" });
+        const storedToken = localStorage.getItem("hail_token");
+        const res = await fetch(`${API}/api/auth/session`, {
+          credentials: "include",
+          headers: storedToken ? { Authorization: `Bearer ${storedToken}` } : {},
+        });
         const data = await parseResponseJson(res, "Session API");
         if (data?.authenticated) {
           setAuthenticated(true);
@@ -1681,10 +1685,16 @@ export default function App() {
 
   async function handleLogout() {
     try {
-      await fetch(`${API}/api/auth/logout`, { method: "POST", credentials: "include" });
+      const storedToken = localStorage.getItem("hail_token");
+      await fetch(`${API}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: storedToken ? { Authorization: `Bearer ${storedToken}` } : {},
+      });
     } catch {
       // ignore
     }
+    localStorage.removeItem("hail_token");
     setAuthenticated(false);
     setCurrentUser(null);
     setResult(null);
@@ -1693,10 +1703,14 @@ export default function App() {
   }
 
   async function callAnthropic(messages, useTools = true) {
+    const storedToken = localStorage.getItem("hail_token");
     const res = await fetch(`${API}/api/anthropic`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
+      },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: useTools ? 4096 : 4096,

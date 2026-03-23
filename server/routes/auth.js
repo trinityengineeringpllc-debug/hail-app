@@ -66,7 +66,7 @@ router.post("/signup", async (req, res) => {
     const token = signToken(user._id);
     setAuthCookie(res, token);
 
-    res.status(201).json({ success: true, user: { name: user.name, email: user.email } });
+    res.status(201).json({ success: true, token, user: { name: user.name, email: user.email } });
   } catch (err) {
     res.status(500).json({ error: err.message || "Signup failed." });
   }
@@ -94,7 +94,7 @@ router.post("/login", async (req, res) => {
     const token = signToken(user._id);
     setAuthCookie(res, token);
 
-    res.json({ success: true, user: { name: user.name, email: user.email } });
+    res.json({ success: true, token, user: { name: user.name, email: user.email } });
   } catch (err) {
     res.status(500).json({ error: err.message || "Login failed." });
   }
@@ -109,7 +109,10 @@ router.post("/logout", (req, res) => {
 // ─── GET /api/auth/session ────────────────────────────────────────────────────
 router.get("/session", async (req, res) => {
   try {
-    const token = req.cookies?.[COOKIE_NAME];
+    const authHeader = req.headers.authorization;
+    const token = (authHeader && authHeader.startsWith("Bearer "))
+      ? authHeader.slice(7)
+      : req.cookies?.[COOKIE_NAME];
     if (!token) return res.json({ authenticated: false });
 
     const payload = verifyToken(token);

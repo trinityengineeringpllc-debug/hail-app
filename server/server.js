@@ -48,7 +48,12 @@ app.get("/api/session", (req, res) => res.redirect(307, "/api/auth/session"));
 const jwt = require("jsonwebtoken");
 
 function requireAuth(req, res, next) {
-  const token = req.cookies?.hail_auth;
+  // Check Authorization header first (mobile/PWA), then cookie (desktop)
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.startsWith("Bearer "))
+    ? authHeader.slice(7)
+    : req.cookies?.hail_auth;
+
   if (!token) {
     return res.status(401).json({ sessionExpired: true, error: { message: "Not authenticated." } });
   }

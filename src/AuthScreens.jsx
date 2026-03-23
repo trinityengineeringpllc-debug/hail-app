@@ -367,6 +367,7 @@ export function LoginScreen({ onLoginSuccess, onGoSignup, onGoForgot }) {
       const res  = await fetch(`${API}/api/auth/login`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed.");
+      if (data.token) localStorage.setItem("hail_token", data.token);
       onLoginSuccess(data.user);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -430,6 +431,7 @@ export function SignupScreen({ onSignupSuccess, onGoLogin }) {
       const res  = await fetch(`${API}/api/auth/signup`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Signup failed.");
+      if (data.token) localStorage.setItem("hail_token", data.token);
       onSignupSuccess(data.user);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -662,6 +664,7 @@ export function NewPasswordScreen({ email, code, onResetSuccess }) {
       const res  = await fetch(`${API}/api/auth/reset-password`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, code, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Reset failed.");
+      if (data.token) localStorage.setItem("hail_token", data.token);
       onResetSuccess(data.user);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
