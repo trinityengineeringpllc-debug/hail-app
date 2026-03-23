@@ -6,7 +6,7 @@ async function handler(req, res) {
   }
 
   try {
-    const upstream = await fetch("https://hail-app.onrender.com/api/anthropic", {
+    const upstream = await fetch("https://hail-app-bj5x.onrender.com/api/anthropic", {
       method: req.method,
       headers: {
         "Content-Type": "application/json",
