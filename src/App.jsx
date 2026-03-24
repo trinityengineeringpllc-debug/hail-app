@@ -557,7 +557,7 @@ function AppHeader({ onLogout }) {
             <span className="hail-header-by">BY</span>
             <img src="/trinity-logo.png" alt="Trinity Engineering" className="hail-header-trinity" />
           </div>
-          <div className="hail-header-tagline">NOAA Storm Events Database · 5-Year Lookback</div>
+          <div className="hail-header-tagline">NOAA Storm Events Database · 10-Year Lookback</div>
         </div>
 
         {/* Right — sign out */}
@@ -1142,7 +1142,7 @@ function PdfPageShell({ children, showTopHeader = false, preview = false }) {
                 fontFamily: '"IBM Plex Mono", monospace',
               }}
             >
-              NOAA STORM EVENTS DATABASE · 5-YEAR LOOKBACK
+              NOAA STORM EVENTS DATABASE · 10-YEAR LOOKBACK
             </div>
           </div>
 
