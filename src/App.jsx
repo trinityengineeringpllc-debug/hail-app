@@ -345,7 +345,7 @@ function buildMeasuredPages(data, metrics) {
     data.hailEvents,
     metrics.hailBaseHeight,
     metrics.hailRowHeights,
-    "Hail Events - Past 5 Years",
+    "Hail Events - Past 10 Years",
     "Hail Events - Continued"
   );
 
@@ -1385,7 +1385,7 @@ function TableHeader({ columns }) {
   );
 }
 
-function HailEventsTable({ rows, title = "Hail Events - Past 5 Years", style = {} }) {
+function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = {} }) {
   return (
     <TableShell title={title} style={style}>
       <TableHeader columns={HAIL_COLUMNS} />
@@ -2231,7 +2231,7 @@ Return only valid JSON matching the schema. No markdown. No prose.`,
             </div>
 
             <div ref={hailBaseMeasureRef} style={{ width: PAGE_W }}>
-              <HailEventsTable rows={[]} title="Hail Events - Past 5 Years" style={{ marginBottom: 0 }} />
+              <HailEventsTable rows={[]} title="Hail Events - Past 10 Years" style={{ marginBottom: 0 }} />
             </div>
 
             {normalized.hailEvents.map((row, i) => (
