@@ -283,6 +283,68 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── Tomorrow.io Historical Hail (auth-protected) ────────────────────────────
+app.get("/api/hail/radar", requireAuth, async (req, res) => {
+  const apiKey = process.env.TOMORROW_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "TOMORROW_API_KEY not configured" });
+
+  const { lat, lon, startDate, endDate } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+
+  try {
+    // Tomorrow.io historical hail data uses the timeline endpoint
+    // Free tier supports up to 6 hours resolution for recent data
+    // For historical we need to batch by month to stay within rate limits
+    const start = startDate || `${new Date().getFullYear() - 10}-01-01`;
+    const end = endDate || `${new Date().getFullYear()}-12-31`;
+
+    const url = `https://api.tomorrow.io/v4/historical?` +
+      `location=${lat},${lon}&` +
+      `fields=hailBinary,precipitationIntensity,precipitationType,windSpeed,windGust&` +
+      `timesteps=1d&` +
+      `startTime=${start}T00:00:00Z&` +
+      `endTime=${end}T00:00:00Z&` +
+      `units=imperial&` +
+      `apikey=${apiKey}`;
+
+    const tomorrowRes = await fetch(url);
+
+    if (!tomorrowRes.ok) {
+      const errText = await tomorrowRes.text();
+      throw new Error(`Tomorrow.io error ${tomorrowRes.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const data = await tomorrowRes.json();
+
+    // Filter to only days where hail was detected
+    const allDays = data?.data?.timelines?.[0]?.intervals || [];
+
+    const hailDays = allDays.filter((interval) => {
+      const v = interval?.values;
+      return v?.hailBinary === 1 || v?.precipitationType === 5; // 5 = hail in Tomorrow.io
+    });
+
+    const normalizedHail = hailDays.map((interval) => ({
+      date: interval.startTime?.slice(0, 10),
+      hailDetected: true,
+      precipitationIntensity: interval.values?.precipitationIntensity,
+      windSpeedMph: interval.values?.windSpeed,
+      windGustMph: interval.values?.windGust,
+      source: "Tomorrow.io / Radar-Derived",
+    }));
+
+    res.json({
+      location: { lat, lon },
+      dateRange: { start, end },
+      totalDaysChecked: allDays.length,
+      hailDaysDetected: hailDays.length,
+      hailEvents: normalizedHail,
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
