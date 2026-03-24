@@ -102,6 +102,138 @@ app.post("/api/anthropic", requireAuth, async (req, res) => {
     res.status(500).json({ error: { message: err.message || "Proxy error" } });
   }
 });
+// ─── NOAA NCEI Storm Events (auth-protected) ─────────────────────────────────
+app.get("/api/noaa/events", requireAuth, async (req, res) => {
+  const token = process.env.NOAA_TOKEN;
+  if (!token) return res.status(500).json({ error: "NOAA_TOKEN not configured" });
+
+  const { lat, lon, startDate, endDate } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+
+  try {
+    // Step 1: Find the FIPS county code for this lat/lon using Census API (free, no key)
+    const fipsRes = await fetch(
+      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
+    );
+    const fipsData = await fipsRes.json();
+    const fips = fipsData?.County?.FIPS;
+
+    if (!fips) return res.status(404).json({ error: "Could not resolve county FIPS for coordinates" });
+
+    // Step 2: Query NCEI Storm Events for that county
+    const start = startDate || `${new Date().getFullYear() - 5}-01-01`;
+    const end = endDate || `${new Date().getFullYear()}-12-31`;
+
+    const nceiUrl = `https://www.ncdc.noaa.gov/stormevents/csv?eventType=%28C%29+Hail&beginDate_mm=01&beginDate_dd=01&beginDate_yyyy=${start.slice(0,4)}&endDate_mm=12&endDate_dd=31&endDate_yyyy=${end.slice(0,4)}&county=${fipsData?.County?.name?.toUpperCase()}%3A${fips.slice(2)}&stateName=${fipsData?.State?.name?.toUpperCase()}&hailfilter=0.00&tornfilter=0&windfilter=000&sort=DT&submitbutton=Search&statefips=${fips.slice(0,2)}%2C${fipsData?.State?.name?.toUpperCase()}`;
+
+    // Use NOAA CDO API instead — more reliable for programmatic access
+    const cdo = await fetch(
+      `https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=FIPS:${fips}&startdate=${start}&enddate=${end}&limit=100`,
+      { headers: { token } }
+    );
+    const cdoData = await cdo.json();
+    res.json({ fips, county: fipsData?.County?.name, state: fipsData?.State?.name, raw: cdoData });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── IEM/SPC Local Storm Reports (auth-protected) ────────────────────────────
+app.get("/api/lsr", requireAuth, async (req, res) => {
+  const { lat, lon, startDate, endDate, radius = 25 } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+
+  try {
+    const start = (startDate || `${new Date().getFullYear() - 5}-01-01`).replace(/-/g, "");
+    const end = (endDate || `${new Date().getFullYear()}-12-31`).replace(/-/g, "");
+
+    // IEM LSR API — returns spotter-confirmed hail reports near a point
+    const url = `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${start}0000&ets=${end}2359&wfos=&type=H&lon=${lon}&lat=${lat}&radius=${radius}`;
+
+    const iemRes = await fetch(url, {
+      headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" }
+    });
+
+    if (!iemRes.ok) throw new Error(`IEM API returned ${iemRes.status}`);
+
+    const data = await iemRes.json();
+
+    // Normalize to a clean array
+    const reports = (data?.features || []).map((f) => ({
+      date: f.properties?.utc_valid?.slice(0, 10),
+      time: f.properties?.utc_valid?.slice(11, 16),
+      magnitude: f.properties?.magnitude,
+      magnitudeUnit: f.properties?.magnitude_f || "IN",
+      city: f.properties?.city,
+      county: f.properties?.county,
+      state: f.properties?.state,
+      remark: f.properties?.remark,
+      source: f.properties?.source,
+      lat: f.geometry?.coordinates?.[1],
+      lon: f.geometry?.coordinates?.[0],
+      distanceMi: null, // calculated client-side if needed
+    }));
+
+    res.json({ count: reports.length, reports });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Visual Crossing station observations (auth-protected) ───────────────────
+app.get("/api/stations", requireAuth, async (req, res) => {
+  const apiKey = process.env.VISUAL_CROSSING_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "VISUAL_CROSSING_API_KEY not configured" });
+
+  const { lat, lon, date } = req.query;
+  if (!lat || !lon || !date) return res.status(400).json({ error: "lat, lon, and date required" });
+
+  try {
+    // Visual Crossing historical weather — returns obs from nearby stations
+    const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${lat},${lon}/${date}/${date}?unitGroup=us&include=obs,stations&key=${apiKey}&contentType=json`;
+
+    const vcRes = await fetch(url);
+    if (!vcRes.ok) {
+      const errText = await vcRes.text();
+      throw new Error(`Visual Crossing error ${vcRes.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const vcData = await vcRes.json();
+    const day = vcData?.days?.[0];
+    const stationsRaw = vcData?.stations || {};
+
+    // Normalize stations into IDW-ready format
+    const stations = Object.entries(stationsRaw).map(([id, s]) => ({
+      id,
+      name: s.name,
+      lat: s.latitude,
+      lon: s.longitude,
+      distanceMi: s.distance ? (s.distance * 0.000621371).toFixed(1) : null,
+      source: "Visual Crossing / ASOS",
+      // Weather obs for this date
+      windSpeedMph: s.wspd ?? day?.windspeed ?? 0,
+      windGustMph: s.wgust ?? day?.windgust ?? 0,
+      tempF: s.temp ?? null,
+      precip: s.precip ?? day?.precip ?? 0,
+      conditions: s.conditions || day?.conditions || "",
+      // Hail not directly in VC — will be enriched by LSR data
+      hailSizeIn: 0,
+      hailProbability: 0,
+    }));
+
+    res.json({
+      date,
+      location: { lat, lon },
+      conditions: day?.conditions,
+      precip: day?.precip,
+      windspeed: day?.windspeed,
+      windgust: day?.windgust,
+      stations,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
