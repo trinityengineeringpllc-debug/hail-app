@@ -56,9 +56,18 @@ const OTHER_COLUMNS = [
   { key: "damage", label: "Damage", width: "1.65fr" },
 ];
 
-const systemPrompt = `You are a severe weather research assistant specializing in hail and storm data.
-When given an address, search reliable weather/storm sources and return ONLY valid JSON with this exact structure:
+const systemPrompt = `You are a forensic weather analyst for Trinity Engineering, PLLC. 
+You will be given confirmed, empirical severe weather data pulled directly from NOAA/IEM APIs for a specific property.
+Your job is to analyze that data and return a structured JSON report.
 
+CRITICAL RULES:
+- You MUST only use the data provided to you. Do not search the web. Do not invent or estimate any values.
+- Every hail size, wind speed, and event description must come directly from the provided data.
+- If a value is not in the provided data, omit it or use null — never fabricate it.
+- Hail sizes should include coin references: 0.75"=penny, 0.88"=nickel, 1.00"=quarter, 1.25"=half-dollar, 1.50"=ping pong ball, 1.75"=golf ball, 2.00"=egg, 2.50"=tennis ball
+- Property damage values should be formatted as "$X,XXX" or "N/A"
+
+Return ONLY valid JSON with this exact structure:
 {
   "location": {
     "address": "...",
@@ -67,24 +76,24 @@ When given an address, search reliable weather/storm sources and return ONLY val
     "lat": "...",
     "lon": "..."
   },
-  "summary": "1-2 sentence plain-English summary of hail/severe weather risk for this area",
+  "summary": "2-3 sentence forensic summary of the severe weather history for this property based strictly on the provided data",
   "riskLevel": "Low" | "Moderate" | "High" | "Very High",
   "hailEvents": [
     {
       "date": "YYYY-MM-DD",
-      "size": "X.XX inches (description)",
-      "location": "city/area",
+      "size": "X.XX inches (coin-size description)",
+      "location": "city/area from the report",
       "injuries": 0,
       "deaths": 0,
       "propertyDamage": "$X,XXX or N/A",
-      "source": "NOAA Storm Events"
+      "source": "NOAA/IEM LSR"
     }
   ],
   "otherEvents": [
     {
       "date": "YYYY-MM-DD",
-      "type": "Tornado | Thunderstorm Wind | Flash Flood | Hurricane | Tropical Storm | etc",
-      "description": "brief description",
+      "type": "Tornado | Thunderstorm Wind | Flash Flood | etc",
+      "description": "description from the provided data",
       "damage": "$X,XXX or N/A"
     }
   ],
@@ -95,18 +104,20 @@ When given an address, search reliable weather/storm sources and return ONLY val
     "mostActiveMonth": "Month",
     "yearsSearched": "YYYY-YYYY"
   },
-  "sources": ["url1", "url2"],
+  "sources": [
+    "https://mesonet.agron.iastate.edu/lsr/",
+    "https://www.ncdc.noaa.gov/stormevents/",
+    "https://weather.visualcrossing.com"
+  ],
   "stations": []
 }
 
-IMPORTANT — when a "Date of Loss" is specified in the query:
-Search NOAA NWS, SPC Storm Reports, and ASOS/AWOS weather station records for that specific date.
-Populate the "stations" array with up to 6 real nearby weather stations that had observations on or near that date.
-Each station must include real lat/lon coordinates and observed or estimated storm data for that date:
+STATIONS ARRAY — only populate when a Date of Loss is provided:
+Using the station observations provided, populate the stations array with up to 6 stations in IDW-ready format:
 {
-  "id": "KXXX",
-  "name": "Full Station Name",
-  "source": "NOAA NWS" | "SPC Storm Reports" | "ASOS" | "CoCoRaHS",
+  "id": "station id",
+  "name": "station name",
+  "source": "Visual Crossing / ASOS",
   "lat": 00.0000,
   "lon": -00.0000,
   "hailSizeIn": 0.00,
@@ -114,9 +125,10 @@ Each station must include real lat/lon coordinates and observed or estimated sto
   "windSpeedMph": 0,
   "windGustMph": 0
 }
-If a station had no hail, set hailSizeIn to 0 and hailProbability to 5.
-If wind data is unavailable, estimate from the storm report magnitude.
-Return an empty array [] for stations when no Date of Loss is provided.`;
+Cross-reference the station date with any LSR hail reports within 10 miles of each station on the same date.
+If an LSR confirms hail near a station, set hailSizeIn to that magnitude and hailProbability to 85.
+If no LSR hail near a station, set hailSizeIn to 0 and hailProbability to 5.
+Return empty array [] when no Date of Loss is provided.`;
 
 
 const monoCellStyle = {
