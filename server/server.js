@@ -283,46 +283,88 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// ─── Tomorrow.io Historical Hail (auth-protected) ────────────────────────────
+// ─── Open-Meteo Historical Weather (no key required) ─────────────────────────
 app.get("/api/hail/radar", requireAuth, async (req, res) => {
-  const apiKey = process.env.TOMORROW_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "TOMORROW_API_KEY not configured" });
-
   const { lat, lon, startDate, endDate } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
   try {
-    // Tomorrow.io historical hail data uses the timeline endpoint
-    // Free tier supports up to 6 hours resolution for recent data
-    // For historical we need to batch by month to stay within rate limits
     const start = startDate || `${new Date().getFullYear() - 10}-01-01`;
     const end = endDate || `${new Date().getFullYear()}-12-31`;
 
-    const url = `https://api.tomorrow.io/v4/historical?` +
-      `location=${lat},${lon}&` +
-      `fields=hailBinary,precipitationIntensity,precipitationType,windSpeed,windGust&` +
-      `timesteps=1d&` +
-      `startTime=${start}T00:00:00Z&` +
-      `endTime=${end}T00:00:00Z&` +
-      `units=imperial&` +
-      `apikey=${apiKey}`;
+    const url = `https://archive-api.open-meteo.com/v1/archive?` +
+      `latitude=${lat}&longitude=${lon}&` +
+      `start_date=${start}&end_date=${end}&` +
+      `daily=weathercode,precipitation_sum,windspeed_10m_max,windgusts_10m_max,precipitation_hours&` +
+      `timezone=America%2FNew_York&` +
+      `wind_speed_unit=mph&` +
+      `precipitation_unit=inch`;
 
-    const tomorrowRes = await fetch(url);
+    const meteoRes = await fetch(url);
 
-    if (!tomorrowRes.ok) {
-      const errText = await tomorrowRes.text();
-      throw new Error(`Tomorrow.io error ${tomorrowRes.status}: ${errText.slice(0, 300)}`);
+    if (!meteoRes.ok) {
+      const errText = await meteoRes.text();
+      throw new Error(`Open-Meteo error ${meteoRes.status}: ${errText.slice(0, 300)}`);
     }
 
-    const data = await tomorrowRes.json();
+    const data = await meteoRes.json();
 
-    // Filter to only days where hail was detected
-    const allDays = data?.data?.timelines?.[0]?.intervals || [];
+    const dates = data?.daily?.time || [];
+    const codes = data?.daily?.weathercode || [];
+    const precip = data?.daily?.precipitation_sum || [];
+    const wind = data?.daily?.windspeed_10m_max || [];
+    const gusts = data?.daily?.windgusts_10m_max || [];
 
-    const hailDays = allDays.filter((interval) => {
-      const v = interval?.values;
-      return v?.hailBinary === 1 || v?.precipitationType === 5; // 5 = hail in Tomorrow.io
+    // WMO codes: 89/90 = hail, 96/99 = thunderstorm with hail
+    const HAIL_CODES = new Set([27, 89, 90, 96, 99]);
+    const TSTORM_CODES = new Set([95, 96, 99]);
+
+    const hailEvents = [];
+    const significantDays = [];
+
+    dates.forEach((date, i) => {
+      const code = codes[i];
+      const precipIn = precip[i] || 0;
+      const windMph = wind[i] || 0;
+      const gustMph = gusts[i] || 0;
+
+      if (HAIL_CODES.has(code)) {
+        hailEvents.push({
+          date,
+          weatherCode: code,
+          hailConfidence: "Radar-Indicated",
+          precipitationIn: precipIn,
+          windSpeedMph: windMph,
+          windGustMph: gustMph,
+          source: "Open-Meteo / ERA5 Reanalysis",
+        });
+      } else if (TSTORM_CODES.has(code) || (precipIn >= 0.5 && gustMph >= 40)) {
+        significantDays.push({
+          date,
+          weatherCode: code,
+          hailConfidence: "Possible — Convective Activity",
+          precipitationIn: precipIn,
+          windSpeedMph: windMph,
+          windGustMph: gustMph,
+          source: "Open-Meteo / ERA5 Reanalysis",
+        });
+      }
     });
+
+    res.json({
+      location: { lat, lon },
+      dateRange: { start, end },
+      totalDaysChecked: dates.length,
+      confirmedHailDays: hailEvents.length,
+      significantConvectiveDays: significantDays.length,
+      hailEvents,
+      significantDays,
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
     const normalizedHail = hailDays.map((interval) => ({
       date: interval.startTime?.slice(0, 10),
