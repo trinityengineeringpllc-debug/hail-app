@@ -1773,14 +1773,7 @@ async function handleLookup() {
       ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
     };
 
-    // ── Step 1: Geocode the address via Visual Crossing to get lat/lon ──────
-    const geoRes = await fetch(
-      `${API}/api/stations?lat=0&lon=0&date=2020-01-01&address=${encodeURIComponent(address)}`,
-      { credentials: "include", headers: authHeaders }
-    );
-
-    // We'll use a simpler geocode approach — ask NOAA events which resolves FIPS
-    // and gives us lat/lon from the address string via a Claude mini-call
+    // ── Step 1: Geocode via Claude (fast, no tools) ──────────────────────────
     const geocodeMessages = [
       {
         role: "user",
@@ -1806,10 +1799,10 @@ No prose. No markdown. Just the JSON.`,
     }
 
     const currentYear = new Date().getFullYear();
-    const startDate = `${currentYear - 5}-01-01`;
+    const startDate = `${currentYear - 10}-01-01`;
     const endDate = `${currentYear}-12-31`;
 
-    // ── Step 2: Fetch all three data sources in parallel ────────────────────
+    // ── Step 2: Fetch all three data sources in parallel ─────────────────────
     const [noaaRes, lsrRes, stationsRes] = await Promise.all([
       fetch(
         `${API}/api/noaa/events?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
@@ -1833,7 +1826,7 @@ No prose. No markdown. Just the JSON.`,
       stationsRes ? stationsRes.json() : null,
     ]);
 
-    // ── Step 3: Filter LSR hail events to within 15 miles of property ───────
+    // ── Step 3: Haversine distance filter ────────────────────────────────────
     function haversineDistance(lat1, lon1, lat2, lon2) {
       const R = 3958.8;
       const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -1848,19 +1841,19 @@ No prose. No markdown. Just the JSON.`,
 
     const nearbyEvents = (noaaData?.events || [])
       .filter((e) => {
-        if (!e.lat || !e.lon) return true; // keep if no coords
-        return haversineDistance(lat, lon, e.lat, e.lon) <= 15;
+        if (!e.lat || !e.lon) return true;
+        return haversineDistance(lat, lon, e.lat, e.lon) <= 25;
       })
-      .slice(0, 50); // cap at 50 events to keep prompt size reasonable
+      .slice(0, 100);
 
     const nearbyLsr = (lsrData?.reports || [])
       .filter((r) => {
         if (!r.lat || !r.lon) return true;
-        return haversineDistance(lat, lon, r.lat, r.lon) <= 15;
+        return haversineDistance(lat, lon, r.lat, r.lon) <= 25;
       })
-      .slice(0, 30);
+      .slice(0, 50);
 
-    // ── Step 4: Build the Claude prompt with real data ───────────────────────
+    // ── Step 4: Build prompt with all three tiers ─────────────────────────────
     const dataPayload = {
       property: {
         address,
@@ -1870,33 +1863,70 @@ No prose. No markdown. Just the JSON.`,
         state: noaaData?.state,
       },
       dateOfLoss: dateOfLoss || null,
-      lookbackYears: 5,
+      lookbackYears: 10,
       dateRange: { start: startDate, end: endDate },
-      lsrHailReports: nearbyLsr,
-      stormEvents: nearbyEvents,
+      tier1_lsr_hail_reports: nearbyLsr,
+      tier2_storm_events: nearbyEvents,
+      tier3_instructions: "Search the web for any additional hail or severe weather events near this property not already captured in Tier 1 or Tier 2 data. Search NOAA Storm Events, SPC storm reports, and NWS archives for this county.",
       stationObservations: stationsData || null,
     };
+
+    const dateClause = dateOfLoss
+      ? `\nDate of Loss: ${dateOfLoss}. Use the provided station observations to populate the stations array for IDW interpolation.`
+      : "";
 
     const analysisMessages = [
       {
         role: "user",
-        content: `Analyze this confirmed NOAA/IEM severe weather data for the property and return the report JSON.
+        content: `Analyze this severe weather data for the property and supplement with web search for any missing events. Return the complete report JSON.
 
-DATA:
-${JSON.stringify(dataPayload, null, 2)}
+PROPERTY: ${address}
+COORDINATES: ${lat}, ${lon}
+LOOKBACK: ${startDate} to ${endDate}${dateClause}
+
+TIER 1 — LSR Spotter Confirmed Hail Reports (${nearbyLsr.length} records):
+${JSON.stringify(nearbyLsr, null, 2)}
+
+TIER 2 — NOAA/IEM Storm Events (${nearbyEvents.length} records):
+${JSON.stringify(nearbyEvents, null, 2)}
+
+TIER 3 — Use web search to find any additional confirmed hail or severe weather events for ${noaaData?.county || "this county"}, ${noaaData?.state || "NC"} from ${startDate} to ${endDate} not already in Tier 1 or Tier 2.
+
+STATION OBSERVATIONS FOR DATE OF LOSS:
+${stationsData ? JSON.stringify(stationsData, null, 2) : "None — no date of loss provided."}
 
 Return only valid JSON matching the schema. No markdown. No prose.`,
       },
     ];
 
-    // ── Step 5: Send to Claude for forensic analysis (no web search) ─────────
-    let data = await callAnthropic(analysisMessages, false);
+    // ── Step 5: Claude analyzes data + fills gaps with web search ─────────────
+    let data = null;
+    let messages = analysisMessages;
+
+    for (let i = 0; i < 4; i++) {
+      data = await callAnthropic(messages, true);
+
+      if (data?.stop_reason === "tool_use") {
+        messages = [...messages, { role: "assistant", content: data.content }];
+        const toolResults = (data.content || [])
+          .filter((b) => b.type === "tool_use")
+          .map((b) => ({
+            type: "tool_result",
+            tool_use_id: b.id,
+            content: b.content ?? "Search completed.",
+          }));
+        messages = [...messages, { role: "user", content: toolResults }];
+      } else {
+        break;
+      }
+    }
+
     let parsed = extractJsonPayload(data);
 
     // Repair pass if needed
     if (!parsed) {
       const repairMessages = [
-        ...analysisMessages,
+        ...messages,
         { role: "assistant", content: data.content },
         {
           role: "user",
@@ -1919,7 +1949,7 @@ Return only valid JSON matching the schema. No markdown. No prose.`,
 
     setResult(parsed);
 
-    // ── Step 6: Run IDW if date of loss and stations returned ────────────────
+    // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
       const idw = runIDW(lat, lon, parsed.stations);
       setIdwResult(idw);
