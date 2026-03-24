@@ -366,28 +366,6 @@ app.get("/api/hail/radar", requireAuth, async (req, res) => {
   }
 });
 
-    const normalizedHail = hailDays.map((interval) => ({
-      date: interval.startTime?.slice(0, 10),
-      hailDetected: true,
-      precipitationIntensity: interval.values?.precipitationIntensity,
-      windSpeedMph: interval.values?.windSpeed,
-      windGustMph: interval.values?.windGust,
-      source: "Tomorrow.io / Radar-Derived",
-    }));
-
-    res.json({
-      location: { lat, lon },
-      dateRange: { start, end },
-      totalDaysChecked: allDays.length,
-      hailDaysDetected: hailDays.length,
-      hailEvents: normalizedHail,
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
