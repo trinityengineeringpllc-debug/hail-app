@@ -111,28 +111,79 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
   try {
-    // Step 1: Find the FIPS county code for this lat/lon using Census API (free, no key)
+    // Step 1: Resolve county FIPS via FCC API
     const fipsRes = await fetch(
       `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
     );
     const fipsData = await fipsRes.json();
     const fips = fipsData?.County?.FIPS;
+    const countyName = fipsData?.County?.name;
+    const stateName = fipsData?.State?.name;
 
-    if (!fips) return res.status(404).json({ error: "Could not resolve county FIPS for coordinates" });
+    if (!fips) return res.status(404).json({ error: "Could not resolve county FIPS" });
 
-    // Step 2: Query NCEI Storm Events for that county
-    const start = startDate || `${new Date().getFullYear() - 5}-01-01`;
-    const end = endDate || `${new Date().getFullYear()}-12-31`;
+    // Step 2: Query NOAA CDO for storm events using location by FIPS
+    const startYear = startDate ? startDate.slice(0, 4) : new Date().getFullYear() - 5;
+    const endYear = endDate ? endDate.slice(0, 4) : new Date().getFullYear();
+    const start = `${startYear}-01-01`;
+    const end = `${endYear}-12-31`;
 
-    const nceiUrl = `https://www.ncdc.noaa.gov/stormevents/csv?eventType=%28C%29+Hail&beginDate_mm=01&beginDate_dd=01&beginDate_yyyy=${start.slice(0,4)}&endDate_mm=12&endDate_dd=31&endDate_yyyy=${end.slice(0,4)}&county=${fipsData?.County?.name?.toUpperCase()}%3A${fips.slice(2)}&stateName=${fipsData?.State?.name?.toUpperCase()}&hailfilter=0.00&tornfilter=0&windfilter=000&sort=DT&submitbutton=Search&statefips=${fips.slice(0,2)}%2C${fipsData?.State?.name?.toUpperCase()}`;
-
-    // Use NOAA CDO API instead — more reliable for programmatic access
-    const cdo = await fetch(
-      `https://www.ncdc.noaa.gov/cdo-web/api/v2/data?datasetid=GHCND&locationid=FIPS:${fips}&startdate=${start}&enddate=${end}&limit=100`,
-      { headers: { token } }
+    // Use NOAA CDO v2 data endpoint with proper Accept header for JSON
+    const cdoRes = await fetch(
+      `https://www.ncdc.noaa.gov/cdo-web/api/v2/data?` +
+      `datasetid=GHCND&` +
+      `locationid=FIPS:${fips}&` +
+      `startdate=${start}&` +
+      `enddate=${end}&` +
+      `datatypeid=PRCP,SNOW,TMAX,TMIN&` +
+      `limit=100&` +
+      `units=standard`,
+      {
+        headers: {
+          token,
+          Accept: "application/json",
+        },
+      }
     );
-    const cdoData = await cdo.json();
-    res.json({ fips, county: fipsData?.County?.name, state: fipsData?.State?.name, raw: cdoData });
+
+    if (!cdoRes.ok) {
+      throw new Error(`NOAA CDO returned ${cdoRes.status}`);
+    }
+
+    const cdoData = await cdoRes.json();
+
+    // Step 3: Also query IEM for hail-specific LSR events in this county
+    const startFmt = start.replace(/-/g, "");
+    const endFmt = end.replace(/-/g, "");
+    const lsrRes = await fetch(
+      `https://mesonet.agron.iastate.edu/geojson/lsr.php?` +
+      `sts=${startFmt}0000&ets=${endFmt}2359&type=H&` +
+      `lon=${lon}&lat=${lat}&radius=30`,
+      { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
+    );
+    const lsrData = await lsrRes.json();
+
+    const hailReports = (lsrData?.features || []).map((f) => ({
+      date: f.properties?.utc_valid?.slice(0, 10),
+      magnitude: f.properties?.magnitude,
+      city: f.properties?.city,
+      county: f.properties?.county,
+      state: f.properties?.state,
+      remark: f.properties?.remark,
+      source: f.properties?.source,
+      lat: f.geometry?.coordinates?.[1],
+      lon: f.geometry?.coordinates?.[0],
+    }));
+
+    res.json({
+      fips,
+      county: countyName,
+      state: stateName,
+      dateRange: { start, end },
+      hailReports,
+      stationData: cdoData?.results || [],
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
