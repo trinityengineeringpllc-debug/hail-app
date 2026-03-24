@@ -295,7 +295,7 @@ app.get("/api/hail/radar", requireAuth, async (req, res) => {
     const url = `https://archive-api.open-meteo.com/v1/archive?` +
       `latitude=${lat}&longitude=${lon}&` +
       `start_date=${start}&end_date=${end}&` +
-      `daily=weathercode,precipitation_sum,windspeed_10m_max,windgusts_10m_max,precipitation_hours&` +
+      `daily=weather_code,precipitation_sum,windspeed_10m_max,windgusts_10m_max,precipitation_hours&` +
       `timezone=America%2FNew_York&` +
       `wind_speed_unit=mph&` +
       `precipitation_unit=inch`;
@@ -310,7 +310,7 @@ app.get("/api/hail/radar", requireAuth, async (req, res) => {
     const data = await meteoRes.json();
 
     const dates = data?.daily?.time || [];
-    const codes = data?.daily?.weathercode || [];
+    const codes = data?.daily?.weather_code ?? data?.daily?.weathercode ?? [];
     const precip = data?.daily?.precipitation_sum || [];
     const wind = data?.daily?.windspeed_10m_max || [];
     const gusts = data?.daily?.windgusts_10m_max || [];
