@@ -102,16 +102,13 @@ app.post("/api/anthropic", requireAuth, async (req, res) => {
     res.status(500).json({ error: { message: err.message || "Proxy error" } });
   }
 });
-// ─── NOAA NCEI Storm Events (auth-protected) ─────────────────────────────────
+// ─── NOAA Storm Events via IEM (auth-protected) ──────────────────────────────
 app.get("/api/noaa/events", requireAuth, async (req, res) => {
-  const token = process.env.NOAA_TOKEN;
-  if (!token) return res.status(500).json({ error: "NOAA_TOKEN not configured" });
-
   const { lat, lon, startDate, endDate } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
   try {
-    // Step 1: Resolve county FIPS via FCC API
+    // Resolve county name and FIPS via FCC API
     const fipsRes = await fetch(
       `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
     );
@@ -119,69 +116,70 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
     const fips = fipsData?.County?.FIPS;
     const countyName = fipsData?.County?.name;
     const stateName = fipsData?.State?.name;
+    const stateCode = fipsData?.State?.code;
 
     if (!fips) return res.status(404).json({ error: "Could not resolve county FIPS" });
 
-    // Step 2: Query NOAA CDO for storm events using location by FIPS
     const startYear = startDate ? startDate.slice(0, 4) : new Date().getFullYear() - 5;
     const endYear = endDate ? endDate.slice(0, 4) : new Date().getFullYear();
-    const start = `${startYear}-01-01`;
-    const end = `${endYear}-12-31`;
+    const startFmt = `${startYear}0101`;
+    const endFmt = `${endYear}1231`;
 
-    // Use NOAA CDO v2 data endpoint with proper Accept header for JSON
-    const cdoRes = await fetch(
-      `https://www.ncdc.noaa.gov/cdo-web/api/v2/data?` +
-      `datasetid=GHCND&` +
-      `locationid=FIPS:${fips}&` +
-      `startdate=${start}&` +
-      `enddate=${end}&` +
-      `datatypeid=PRCP,SNOW,TMAX,TMIN&` +
-      `limit=100&` +
-      `units=standard`,
-      {
-        headers: {
-          token,
-          Accept: "application/json",
-        },
-      }
-    );
+    // Query IEM for ALL severe weather LSRs within 50 miles (hail + wind + tornado)
+    const [hailRes, windRes, torRes] = await Promise.all([
+      fetch(
+        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=H&lon=${lon}&lat=${lat}&radius=50`,
+        { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
+      ),
+      fetch(
+        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=G&lon=${lon}&lat=${lat}&radius=50`,
+        { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
+      ),
+      fetch(
+        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=T&lon=${lon}&lat=${lat}&radius=50`,
+        { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
+      ),
+    ]);
 
-    if (!cdoRes.ok) {
-      throw new Error(`NOAA CDO returned ${cdoRes.status}`);
-    }
+    const [hailData, windData, torData] = await Promise.all([
+      hailRes.json(),
+      windRes.json(),
+      torRes.json(),
+    ]);
 
-    const cdoData = await cdoRes.json();
+    const normalizeFeatures = (features, type) =>
+      (features || []).map((f) => ({
+        type,
+        date: f.properties?.utc_valid?.slice(0, 10),
+        time: f.properties?.utc_valid?.slice(11, 16),
+        magnitude: f.properties?.magnitude,
+        magnitudeUnit: f.properties?.magnitude_f || (type === "Hail" ? "IN" : "MPH"),
+        city: f.properties?.city,
+        county: f.properties?.county,
+        state: f.properties?.state,
+        remark: f.properties?.remark,
+        source: f.properties?.source,
+        lat: f.geometry?.coordinates?.[1],
+        lon: f.geometry?.coordinates?.[0],
+      }));
 
-    // Step 3: Also query IEM for hail-specific LSR events in this county
-    const startFmt = start.replace(/-/g, "");
-    const endFmt = end.replace(/-/g, "");
-    const lsrRes = await fetch(
-      `https://mesonet.agron.iastate.edu/geojson/lsr.php?` +
-      `sts=${startFmt}0000&ets=${endFmt}2359&type=H&` +
-      `lon=${lon}&lat=${lat}&radius=30`,
-      { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
-    );
-    const lsrData = await lsrRes.json();
-
-    const hailReports = (lsrData?.features || []).map((f) => ({
-      date: f.properties?.utc_valid?.slice(0, 10),
-      magnitude: f.properties?.magnitude,
-      city: f.properties?.city,
-      county: f.properties?.county,
-      state: f.properties?.state,
-      remark: f.properties?.remark,
-      source: f.properties?.source,
-      lat: f.geometry?.coordinates?.[1],
-      lon: f.geometry?.coordinates?.[0],
-    }));
+    const allEvents = [
+      ...normalizeFeatures(hailData?.features, "Hail"),
+      ...normalizeFeatures(windData?.features, "Wind"),
+      ...normalizeFeatures(torData?.features, "Tornado"),
+    ].sort((a, b) => (a.date > b.date ? -1 : 1));
 
     res.json({
       fips,
       county: countyName,
       state: stateName,
-      dateRange: { start, end },
-      hailReports,
-      stationData: cdoData?.results || [],
+      stateCode,
+      dateRange: { start: `${startYear}-01-01`, end: `${endYear}-12-31` },
+      totalEvents: allEvents.length,
+      hailCount: hailData?.features?.length || 0,
+      windCount: windData?.features?.length || 0,
+      tornadoCount: torData?.features?.length || 0,
+      events: allEvents,
     });
 
   } catch (err) {
