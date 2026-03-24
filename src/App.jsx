@@ -1755,89 +1755,179 @@ export default function App() {
     return data;
   }
 
-  async function handleLookup() {
-    if (!address.trim()) return;
+async function handleLookup() {
+  if (!address.trim()) return;
 
-    setLoading(true);
-    setError("");
-    setResult(null);
-    setIdwResult(null);
+  setLoading(true);
+  setError("");
+  setResult(null);
+  setIdwResult(null);
+
+  try {
+    const storedToken = localStorage.getItem("hail_token");
+    const authHeaders = {
+      "Content-Type": "application/json",
+      ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
+    };
+
+    // ── Step 1: Geocode the address via Visual Crossing to get lat/lon ──────
+    const geoRes = await fetch(
+      `${API}/api/stations?lat=0&lon=0&date=2020-01-01&address=${encodeURIComponent(address)}`,
+      { credentials: "include", headers: authHeaders }
+    );
+
+    // We'll use a simpler geocode approach — ask NOAA events which resolves FIPS
+    // and gives us lat/lon from the address string via a Claude mini-call
+    const geocodeMessages = [
+      {
+        role: "user",
+        content: `Return ONLY a JSON object with lat and lon for this address: ${address}
+Example: {"lat": "35.9029", "lon": "-77.5266"}
+No prose. No markdown. Just the JSON.`,
+      },
+    ];
+
+    const geoData = await callAnthropic(geocodeMessages, false);
+    let lat, lon;
 
     try {
-      const dateClause = dateOfLoss
-        ? `\nDate of Loss: ${dateOfLoss}. Search for nearby weather station observations for this specific date and populate the stations array.`
-        : "";
+      const geoJson = extractJsonPayload(geoData);
+      lat = parseFloat(geoJson?.lat);
+      lon = parseFloat(geoJson?.lon);
+    } catch {
+      throw new Error("Could not geocode address. Please try a more specific address.");
+    }
 
-      let messages = [
+    if (isNaN(lat) || isNaN(lon)) {
+      throw new Error("Could not geocode address. Please try a more specific address.");
+    }
+
+    const currentYear = new Date().getFullYear();
+    const startDate = `${currentYear - 5}-01-01`;
+    const endDate = `${currentYear}-12-31`;
+
+    // ── Step 2: Fetch all three data sources in parallel ────────────────────
+    const [noaaRes, lsrRes, stationsRes] = await Promise.all([
+      fetch(
+        `${API}/api/noaa/events?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
+        { credentials: "include", headers: authHeaders }
+      ),
+      fetch(
+        `${API}/api/lsr?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}&radius=25`,
+        { credentials: "include", headers: authHeaders }
+      ),
+      dateOfLoss
+        ? fetch(
+            `${API}/api/stations?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
+            { credentials: "include", headers: authHeaders }
+          )
+        : Promise.resolve(null),
+    ]);
+
+    const [noaaData, lsrData, stationsData] = await Promise.all([
+      noaaRes.json(),
+      lsrRes.json(),
+      stationsRes ? stationsRes.json() : null,
+    ]);
+
+    // ── Step 3: Filter LSR hail events to within 15 miles of property ───────
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 3958.8;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    const nearbyEvents = (noaaData?.events || [])
+      .filter((e) => {
+        if (!e.lat || !e.lon) return true; // keep if no coords
+        return haversineDistance(lat, lon, e.lat, e.lon) <= 15;
+      })
+      .slice(0, 50); // cap at 50 events to keep prompt size reasonable
+
+    const nearbyLsr = (lsrData?.reports || [])
+      .filter((r) => {
+        if (!r.lat || !r.lon) return true;
+        return haversineDistance(lat, lon, r.lat, r.lon) <= 15;
+      })
+      .slice(0, 30);
+
+    // ── Step 4: Build the Claude prompt with real data ───────────────────────
+    const dataPayload = {
+      property: {
+        address,
+        lat,
+        lon,
+        county: noaaData?.county,
+        state: noaaData?.state,
+      },
+      dateOfLoss: dateOfLoss || null,
+      lookbackYears: 5,
+      dateRange: { start: startDate, end: endDate },
+      lsrHailReports: nearbyLsr,
+      stormEvents: nearbyEvents,
+      stationObservations: stationsData || null,
+    };
+
+    const analysisMessages = [
+      {
+        role: "user",
+        content: `Analyze this confirmed NOAA/IEM severe weather data for the property and return the report JSON.
+
+DATA:
+${JSON.stringify(dataPayload, null, 2)}
+
+Return only valid JSON matching the schema. No markdown. No prose.`,
+      },
+    ];
+
+    // ── Step 5: Send to Claude for forensic analysis (no web search) ─────────
+    let data = await callAnthropic(analysisMessages, false);
+    let parsed = extractJsonPayload(data);
+
+    // Repair pass if needed
+    if (!parsed) {
+      const repairMessages = [
+        ...analysisMessages,
+        { role: "assistant", content: data.content },
         {
           role: "user",
-          content: `Look up hail and severe weather data for this address: ${address}
-
-Search for the past 5 years (${CURRENT_YEAR - 5} to ${CURRENT_YEAR}).${dateClause}
-Return only valid JSON in the exact schema.`,
+          content: "Return the exact same answer as valid JSON only. Start with { and end with }.",
         },
       ];
-
-      let data = null;
-
-      for (let i = 0; i < 3; i += 1) {
-        data = await callAnthropic(messages, true);
-
-        if (data?.stop_reason === "tool_use") {
-          messages = [...messages, { role: "assistant", content: data.content }];
-
-          const toolResults = (data.content || [])
-            .filter((b) => b.type === "tool_use")
-            .map((b) => ({
-              type: "tool_result",
-              tool_use_id: b.id,
-              content: b.content ?? "Search completed.",
-            }));
-
-          messages = [...messages, { role: "user", content: toolResults }];
-        } else {
-          break;
-        }
-      }
-
-      let parsed = extractJsonPayload(data);
-
-      if (!parsed && data) {
-        const repairMessages = [
-          ...messages,
-          { role: "assistant", content: data.content },
-          {
-            role: "user",
-            content:
-              "Return the exact same final answer again as valid JSON only. No markdown. No prose. No citations. Start with { and end with }.",
-          },
-        ];
-
-        const repaired = await callAnthropic(repairMessages, false);
-        parsed = extractJsonPayload(repaired);
-      }
-
-      if (!parsed) {
-        throw new Error("Claude returned a non-JSON answer. Please try again.");
-      }
-
-      setResult(parsed);
-
-      // Run IDW interpolation when Date of Loss is set and stations were returned
-      if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
-        const lat = parseFloat(parsed?.location?.lat);
-        const lon = parseFloat(parsed?.location?.lon);
-        if (!isNaN(lat) && !isNaN(lon)) {
-          const idw = runIDW(lat, lon, parsed.stations);
-          setIdwResult(idw);
-        }
-      }
-    } catch (err) {
-      setError(err.message || "Failed to retrieve weather data.");
-    } finally {
-      setLoading(false);
+      const repaired = await callAnthropic(repairMessages, false);
+      parsed = extractJsonPayload(repaired);
     }
+
+    if (!parsed) {
+      throw new Error("Failed to parse weather analysis. Please try again.");
+    }
+
+    // Ensure lat/lon are set from our geocode
+    if (parsed.location) {
+      parsed.location.lat = String(lat);
+      parsed.location.lon = String(lon);
+    }
+
+    setResult(parsed);
+
+    // ── Step 6: Run IDW if date of loss and stations returned ────────────────
+    if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
+      const idw = runIDW(lat, lon, parsed.stations);
+      setIdwResult(idw);
+    }
+
+  } catch (err) {
+    setError(err.message || "Failed to retrieve weather data.");
+  } finally {
+    setLoading(false);
   }
+}
 
   async function downloadPDF() {
     if (!normalized || !layoutReady || pages.length === 0) return;
