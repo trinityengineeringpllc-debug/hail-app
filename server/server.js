@@ -354,12 +354,10 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
     // Query Zoho Creator for hail events in this county/state
-    const hailRes = await fetch(
-      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?` +
-      `criteria=(county%3D%22${encodeURIComponent(countyName)}%22%20AND%20state%3D%22${encodeURIComponent(stateName)}%22%20AND%20event_type%3D%22Hail%22)&` +
-      `limit=200`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
+   const hailRes = await fetch(
+  `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?limit=10`,
+  { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+);
     const hailData = await hailRes.json();
 
     // Query for other severe weather events
