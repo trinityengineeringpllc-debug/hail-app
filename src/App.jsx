@@ -1803,8 +1803,8 @@ No prose. No markdown. Just the JSON.`,
     const endDate = `${currentYear}-12-31`;
 
     // ── Step 2: Fetch all three data sources in parallel ─────────────────────
-    const [noaaRes, lsrRes, stationsRes] = await Promise.all([
-      fetch(
+const [noaaRes, lsrRes, stationsRes, stormEventsRes] = await Promise.all([
+  fetch(
         `${API}/api/noaa/events?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include", headers: authHeaders }
       ),
@@ -1817,14 +1817,18 @@ No prose. No markdown. Just the JSON.`,
             `${API}/api/stations?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
             { credentials: "include", headers: authHeaders }
           )
-        : Promise.resolve(null),
-    ]);
+: Promise.resolve(null),
+    fetch(
+      `${API}/api/noaa/stormevents?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
+      { credentials: "include", headers: authHeaders }
+    ),    ]);
 
-    const [noaaData, lsrData, stationsData] = await Promise.all([
-      noaaRes.json(),
-      lsrRes.json(),
-      stationsRes ? stationsRes.json() : null,
-    ]);
+   const [noaaData, lsrData, stationsData, stormEventsData] = await Promise.all([
+  noaaRes.json(),
+  lsrRes.json(),
+  stationsRes ? stationsRes.json() : null,
+  stormEventsRes.json(),
+]);
 
     // ── Step 3: Haversine distance filter ────────────────────────────────────
     function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -1867,6 +1871,9 @@ No prose. No markdown. Just the JSON.`,
       dateRange: { start: startDate, end: endDate },
       tier1_lsr_hail_reports: nearbyLsr,
       tier2_storm_events: nearbyEvents,
+            tier2_noaa_storm_events_hail: stormEventsData?.hailEvents || [],
+      tier2_noaa_storm_events_other: stormEventsData?.otherEvents || [],
+```
       tier3_instructions: "Search the web for any additional hail or severe weather events near this property not already captured in Tier 1 or Tier 2 data. Search NOAA Storm Events, SPC storm reports, and NWS archives for this county.",
       stationObservations: stationsData || null,
     };
@@ -1889,6 +1896,9 @@ ${JSON.stringify(nearbyLsr, null, 2)}
 
 TIER 2 — NOAA/IEM Storm Events (${nearbyEvents.length} records):
 ${JSON.stringify(nearbyEvents, null, 2)}
+
+TIER 2B — NOAA Storm Events Database Direct (${stormEventsData?.hailCount || 0} confirmed hail records):
+${JSON.stringify(stormEventsData?.hailEvents || [], null, 2)}
 
 TIER 3 — Use web search to find any additional confirmed hail or severe weather events for ${noaaData?.county || "this county"}, ${noaaData?.state || "NC"} from ${startDate} to ${endDate} not already in Tier 1 or Tier 2.
 
