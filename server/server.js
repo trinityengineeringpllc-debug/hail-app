@@ -320,7 +320,7 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// ─── NOAA SWDI Storm Events JSON (auth-protected) ────────────────────────────
+// ─── NOAA SWDI Storm Events (auth-protected) ─────────────────────────────────
 app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
   const { lat, lon, startDate, endDate } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
@@ -341,107 +341,72 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     const startYear = parseInt(startDate?.slice(0, 4) || new Date().getFullYear() - 10);
     const endYear = parseInt(endDate?.slice(0, 4) || new Date().getFullYear());
 
-    // Query SWDI for hail events - returns JSON directly, no decompression needed
-    // Fetch one year at a time to stay within memory limits
+    // Build bounding box around property (0.5 degree ~ 35 miles)
+    const bbox = `${parseFloat(lon) - 0.5},${parseFloat(lat) - 0.5},${parseFloat(lon) + 0.5},${parseFloat(lat) + 0.5}`;
+
     const allHailEvents = [];
     const allOtherEvents = [];
 
+    // Query one year at a time to stay within limits
     for (let year = startYear; year <= endYear; year++) {
       try {
-        // SWDI hail endpoint - filters by bounding box around property
-        const bbox = `${parseFloat(lon) - 0.5},${parseFloat(lat) - 0.5},${parseFloat(lon) + 0.5},${parseFloat(lat) + 0.5}`;
-        
         const [hailRes, windRes, torRes] = await Promise.all([
           fetch(
-            `https://www.ncei.noaa.gov/access/swdi/services/json/hail?` +
-            `bbox=${bbox}&` +
-            `starttime=${year}-01-01T00:00:00&` +
-            `endtime=${year}-12-31T23:59:59&` +
-            `limit=500`,
+            `https://www.ncdc.noaa.gov/swdiws/csv/nx3hail/${year}0101-${year}1231;bbox=${bbox}`,
             { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
           ),
           fetch(
-            `https://www.ncei.noaa.gov/access/swdi/services/json/wind?` +
-            `bbox=${bbox}&` +
-            `starttime=${year}-01-01T00:00:00&` +
-            `endtime=${year}-12-31T23:59:59&` +
-            `limit=500`,
+            `https://www.ncdc.noaa.gov/swdiws/csv/nx3wind/${year}0101-${year}1231;bbox=${bbox}`,
             { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
           ),
           fetch(
-            `https://www.ncei.noaa.gov/access/swdi/services/json/tornado?` +
-            `bbox=${bbox}&` +
-            `starttime=${year}-01-01T00:00:00&` +
-            `endtime=${year}-12-31T23:59:59&` +
-            `limit=500`,
+            `https://www.ncdc.noaa.gov/swdiws/csv/nx3tor/${year}0101-${year}1231;bbox=${bbox}`,
             { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
           ),
         ]);
 
-        const [hailData, windData, torData] = await Promise.all([
-          hailRes.json().catch(() => ({})),
-          windRes.json().catch(() => ({})),
-          torRes.json().catch(() => ({})),
+        const [hailCsv, windCsv, torCsv] = await Promise.all([
+          hailRes.text(),
+          windRes.text(),
+          torRes.text(),
         ]);
 
-        // Normalize hail events
-        (hailData?.features || []).forEach((f) => {
-          allHailEvents.push({
-            date: f.properties?.ZTIME?.slice(0, 10),
-            type: "Hail",
-            magnitude: f.properties?.MAGNITUDE,
-            magnitudeUnit: "IN",
-            location: `${countyName}, ${stateCode}`,
-            county: countyName,
-            state: stateName,
-            lat: f.geometry?.coordinates?.[1],
-            lon: f.geometry?.coordinates?.[0],
-            source: "NOAA SWDI / Storm Events",
-            narrative: f.properties?.COMMENTS || "",
-          });
-        });
+        // Parse CSV helper
+        const parseCsv = (csv, type) => {
+          const lines = csv.split("\n").filter(l => l.trim() && !l.startsWith("#"));
+          if (lines.length < 2) return [];
+          const headers = lines[0].split(",").map(h => h.trim().replace(/"/g, ""));
+          return lines.slice(1).map(line => {
+            const vals = line.split(",").map(v => v.trim().replace(/"/g, ""));
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i] || "");
+            return {
+              type,
+              date: obj.ZTIME?.slice(0, 10) || obj.DATE || "",
+              magnitude: obj.MAXSIZE || obj.MAGNITUDE || obj.MAG || "",
+              magnitudeUnit: type === "Hail" ? "IN" : type === "Wind" ? "MPH" : "EF",
+              lat: parseFloat(obj.LAT) || parseFloat(obj.CLAT) || null,
+              lon: parseFloat(obj.LON) || parseFloat(obj.CLON) || null,
+              county: countyName,
+              state: stateName,
+              source: "NOAA SWDI / NEXRAD",
+              narrative: obj.COMMENTS || obj.REMARK || "",
+            };
+          }).filter(e => e.date);
+        };
 
-        // Normalize wind events
-        (windData?.features || []).forEach((f) => {
-          allOtherEvents.push({
-            date: f.properties?.ZTIME?.slice(0, 10),
-            type: "Thunderstorm Wind",
-            magnitude: f.properties?.MAGNITUDE,
-            magnitudeUnit: "MPH",
-            location: `${countyName}, ${stateCode}`,
-            county: countyName,
-            state: stateName,
-            lat: f.geometry?.coordinates?.[1],
-            lon: f.geometry?.coordinates?.[0],
-            source: "NOAA SWDI / Storm Events",
-            narrative: f.properties?.COMMENTS || "",
-          });
-        });
+        const hailEvents = parseCsv(hailCsv, "Hail");
+        const windEvents = parseCsv(windCsv, "Wind");
+        const torEvents = parseCsv(torCsv, "Tornado");
 
-        // Normalize tornado events
-        (torData?.features || []).forEach((f) => {
-          allOtherEvents.push({
-            date: f.properties?.ZTIME?.slice(0, 10),
-            type: "Tornado",
-            magnitude: f.properties?.MAGNITUDE,
-            magnitudeUnit: "EF",
-            location: `${countyName}, ${stateCode}`,
-            county: countyName,
-            state: stateName,
-            lat: f.geometry?.coordinates?.[1],
-            lon: f.geometry?.coordinates?.[0],
-            source: "NOAA SWDI / Storm Events",
-            narrative: f.properties?.COMMENTS || "",
-          });
-        });
+        allHailEvents.push(...hailEvents);
+        allOtherEvents.push(...windEvents, ...torEvents);
 
       } catch (yearErr) {
-        // Skip years that fail silently
         console.error(`SWDI error for year ${year}:`, yearErr.message);
       }
     }
 
-    // Sort by date descending
     allHailEvents.sort((a, b) => (a.date > b.date ? -1 : 1));
     allOtherEvents.sort((a, b) => (a.date > b.date ? -1 : 1));
 
