@@ -102,13 +102,13 @@ app.post("/api/anthropic", requireAuth, async (req, res) => {
     res.status(500).json({ error: { message: err.message || "Proxy error" } });
   }
 });
-// ─── NOAA Storm Events via IEM (auth-protected) ──────────────────────────────
+// ─── NOAA Storm Events + SWDI Hail (auth-protected) ─────────────────────────
 app.get("/api/noaa/events", requireAuth, async (req, res) => {
   const { lat, lon, startDate, endDate } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
   try {
-    // Resolve county name and FIPS via FCC API
+    // Step 1: Resolve county FIPS via FCC API
     const fipsRes = await fetch(
       `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
     );
@@ -120,33 +120,65 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
 
     if (!fips) return res.status(404).json({ error: "Could not resolve county FIPS" });
 
-    const startYear = startDate ? startDate.slice(0, 4) : new Date().getFullYear() - 5;
+    const startYear = startDate ? startDate.slice(0, 4) : new Date().getFullYear() - 10;
     const endYear = endDate ? endDate.slice(0, 4) : new Date().getFullYear();
     const startFmt = `${startYear}0101`;
     const endFmt = `${endYear}1231`;
 
-    // Query IEM for ALL severe weather LSRs within 50 miles (hail + wind + tornado)
-    const [hailRes, windRes, torRes] = await Promise.all([
+    // Step 2: Query SWDI for NEXRAD hail signatures at this location
+    // This gives us radar-derived hail data — same source as commercial products
+    const swdiUrl = `https://www.ncei.noaa.gov/access/swdi/services/json/` +
+      `nhail?` +
+      `bbox=${parseFloat(lon) - 0.3},${parseFloat(lat) - 0.3},` +
+      `${parseFloat(lon) + 0.3},${parseFloat(lat) + 0.3}&` +
+      `starttime=${startYear}-01-01T00:00:00&` +
+      `endtime=${endYear}-12-31T23:59:59&` +
+      `limit=1000`;
+
+    // Step 3: Query IEM for all severe weather LSRs in parallel
+    const [swdiRes, hailRes, windRes, torRes] = await Promise.all([
+      fetch(swdiUrl, {
+        headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" }
+      }),
       fetch(
-        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=H&lon=${lon}&lat=${lat}&radius=50`,
+        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=H&lon=${lon}&lat=${lat}&radius=25`,
         { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
       ),
       fetch(
-        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=G&lon=${lon}&lat=${lat}&radius=50`,
+        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=G&lon=${lon}&lat=${lat}&radius=25`,
         { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
       ),
       fetch(
-        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=T&lon=${lon}&lat=${lat}&radius=50`,
+        `https://mesonet.agron.iastate.edu/geojson/lsr.php?sts=${startFmt}0000&ets=${endFmt}2359&type=T&lon=${lon}&lat=${lat}&radius=25`,
         { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
       ),
     ]);
 
-    const [hailData, windData, torData] = await Promise.all([
-      hailRes.json(),
-      windRes.json(),
-      torRes.json(),
+    const [swdiData, hailData, windData, torData] = await Promise.all([
+      swdiRes.json().catch(() => ({ features: [] })),
+      hailRes.json().catch(() => ({ features: [] })),
+      windRes.json().catch(() => ({ features: [] })),
+      torRes.json().catch(() => ({ features: [] })),
     ]);
 
+    // Normalize SWDI NEXRAD hail signatures
+    const nexradHail = (swdiData?.features || []).map((f) => ({
+      type: "Hail",
+      date: f.properties?.ZTIME?.slice(0, 10),
+      time: f.properties?.ZTIME?.slice(11, 16),
+      magnitude: f.properties?.MAXSIZE,
+      magnitudeUnit: "IN",
+      probability: f.properties?.PROB,
+      city: countyName,
+      county: countyName,
+      state: stateName,
+      lat: f.geometry?.coordinates?.[1],
+      lon: f.geometry?.coordinates?.[0],
+      source: "NEXRAD/SWDI",
+      remark: `NEXRAD hail signature. Max size: ${f.properties?.MAXSIZE}" Probability: ${f.properties?.PROB}%`,
+    }));
+
+    // Normalize LSR events
     const normalizeFeatures = (features, type) =>
       (features || []).map((f) => ({
         type,
@@ -163,11 +195,15 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
         lon: f.geometry?.coordinates?.[0],
       }));
 
-    const allEvents = [
+    const lsrEvents = [
       ...normalizeFeatures(hailData?.features, "Hail"),
       ...normalizeFeatures(windData?.features, "Wind"),
       ...normalizeFeatures(torData?.features, "Tornado"),
-    ].sort((a, b) => (a.date > b.date ? -1 : 1));
+    ];
+
+    // Combine all events, sorted by date descending
+    const allEvents = [...nexradHail, ...lsrEvents]
+      .sort((a, b) => (a.date > b.date ? -1 : 1));
 
     res.json({
       fips,
@@ -176,7 +212,8 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
       stateCode,
       dateRange: { start: `${startYear}-01-01`, end: `${endYear}-12-31` },
       totalEvents: allEvents.length,
-      hailCount: hailData?.features?.length || 0,
+      nexradHailCount: nexradHail.length,
+      lsrHailCount: hailData?.features?.length || 0,
       windCount: windData?.features?.length || 0,
       tornadoCount: torData?.features?.length || 0,
       events: allEvents,
