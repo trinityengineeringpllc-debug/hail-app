@@ -356,11 +356,11 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
             { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
           ),
           fetch(
-            `https://www.ncdc.noaa.gov/swdiws/csv/nx3wind/${year}0101-${year}1231;bbox=${bbox}`,
+            `https://www.ncdc.noaa.gov/swdiws/csv/plsr/${year}0101-${year}1231;bbox=${bbox}`,
             { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
           ),
           fetch(
-            `https://www.ncdc.noaa.gov/swdiws/csv/nx3tor/${year}0101-${year}1231;bbox=${bbox}`,
+            `https://www.ncdc.noaa.gov/swdiws/csv/nx3tvs/${year}0101-${year}1231;bbox=${bbox}`,
             { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } }
           ),
         ]);
