@@ -1957,7 +1957,30 @@ Return only valid JSON matching the schema. No markdown. No prose.`,
       parsed.location.lon = String(lon);
     }
 
-    setResult(parsed);
+if (stormEventsData?.hailEvents?.length > 0) {
+  const directHailEvents = stormEventsData.hailEvents.map(e => ({
+    date: e.date,
+    size: e.magnitude ? `${e.magnitude} inches` : "N/A",
+    location: e.location || `${stormEventsData.county}, ${stormEventsData.state}`,
+    injuries: e.injuries || 0,
+    deaths: e.deaths || 0,
+    propertyDamage: e.propertyDamage || "N/A",
+    source: "NOAA Storm Events Database",
+  }));
+  parsed.hailEvents = [
+    ...directHailEvents,
+    ...(parsed.hailEvents || []),
+  ];
+  parsed.stats = {
+    ...parsed.stats,
+    totalHailEvents: parsed.hailEvents.length,
+    largestHailSize: directHailEvents.reduce((max, e) => {
+      const size = parseFloat(e.size);
+      return size > parseFloat(max) ? e.size : max;
+    }, "0"),
+  };
+}
+setResult(parsed);
 
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
