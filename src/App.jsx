@@ -67,12 +67,12 @@ DATA TIERS — label each event with its source tier:
 - Tier 3 (Supplemental): Web search findings from news, NWS reports, SPC archives — use to fill gaps only
 
 CRITICAL RULES:
-- Prioritize Tier 1 and Tier 2 data. Use web search only to find events not already in the provided data.
-- Never contradict or override Tier 1 empirical data with web search results.
-- Hail sizes must include coin references: 0.75"=penny, 0.88"=nickel, 1.00"=quarter, 1.25"=half-dollar, 1.50"=ping pong ball, 1.75"=golf ball, 2.00"=egg, 2.50"=tennis ball
+- The tier2_noaa_storm_events_hail array contains CONFIRMED hail events directly from the NOAA Storm Events Database. You MUST include ALL of these in the hailEvents array of your response. Do not omit any of them.
+- Each item in tier2_noaa_storm_events_hail must become a hailEvent entry with proper date, size, location and source fields.
+- Hail sizes must include coin references: 0.75"=penny, 0.88"=nickel, 1.00"=quarter, 1.25"=half-dollar, 1.50"=ping pong ball, 1.75"=golf ball, 2.00"=egg
+- Use web search only to find events not already in the provided data.
+- Never contradict or omit provided empirical data.
 - Property damage values formatted as "$X,XXX" or "N/A"
-- Search for events within 25 miles of the property coordinates
-- Look back 10 years from today
 
 Return ONLY valid JSON with this exact structure:
 {
