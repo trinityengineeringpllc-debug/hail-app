@@ -398,8 +398,10 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
           const eventType = col(row, "EVENT_TYPE");
 
           // Filter by state and county
-          if (state !== stateName && state !== stateCode) continue;
-          if (czName !== countyName) continue;
+          if (!state.includes(stateName.slice(0,4)) && state !== stateCode) continue;
+if (!czName.replace(/\s+COUNTY$/i, "").trim().toUpperCase().includes(
+    countyName.replace(/\s+COUNTY$/i, "").trim().toUpperCase().slice(0,6)
+)) continue;
 
           const dateRaw = col(row, "BEGIN_DATE_TIME");
           // Convert from M/D/YYYY HH:MM:SS to YYYY-MM-DD
