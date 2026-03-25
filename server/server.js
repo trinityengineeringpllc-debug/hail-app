@@ -332,8 +332,7 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
       `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
     );
     const fipsData = await fipsRes.json();
-    const countyName = fipsData?.County?.name?.toUpperCase();
-    const stateName = fipsData?.State?.name?.toUpperCase();
+    const countyName = fipsData?.County?.name?.toUpperCase().replace(' COUNTY', '').trim();    const stateName = fipsData?.State?.name?.toUpperCase();
 
     if (!countyName || !stateName) {
       return res.status(404).json({ error: "Could not resolve county" });
