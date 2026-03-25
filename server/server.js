@@ -321,9 +321,87 @@ app.get("/api/stations", requireAuth, async (req, res) => {
   }
 });
 
-// ─── NOAA Storm Events (stubbed — pending Zoho Creator integration) ──────────
+// ─── NOAA Storm Events via Zoho Creator (auth-protected) ─────────────────────
 app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
-  res.json({ county: null, state: null, hailCount: 0, otherCount: 0, hailEvents: [], otherEvents: [] });
+  const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+
+  try {
+    // Resolve county and state via FCC
+    const fipsRes = await fetch(
+      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
+    );
+    const fipsData = await fipsRes.json();
+    const countyName = fipsData?.County?.name?.toUpperCase();
+    const stateName = fipsData?.State?.name?.toUpperCase();
+
+    if (!countyName || !stateName) {
+      return res.status(404).json({ error: "Could not resolve county" });
+    }
+
+    // Get Zoho access token
+    const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+        client_id: process.env.ZOHO_CLIENT_ID,
+        client_secret: process.env.ZOHO_CLIENT_SECRET,
+        grant_type: "refresh_token",
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    if (!accessToken) throw new Error("Failed to get Zoho access token");
+
+    // Query Zoho Creator for hail events in this county/state
+    const hailRes = await fetch(
+      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?` +
+      `criteria=(county%3D%22${encodeURIComponent(countyName)}%22%20AND%20state%3D%22${encodeURIComponent(stateName)}%22%20AND%20event_type%3D%22Hail%22)&` +
+      `limit=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const hailData = await hailRes.json();
+
+    // Query for other severe weather events
+    const otherRes = await fetch(
+      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?` +
+      `criteria=(county%3D%22${encodeURIComponent(countyName)}%22%20AND%20state%3D%22${encodeURIComponent(stateName)}%22%20AND%20event_type!%3D%22Hail%22)&` +
+      `limit=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const otherData = await otherRes.json();
+
+    const normalize = (records) => (records || []).map(r => ({
+      date: r.event_date,
+      type: r.event_type,
+      magnitude: r.magnitude,
+      magnitudeType: r.magnitude_type,
+      location: r.location,
+      county: r.county,
+      state: r.state,
+      injuries: r.injuries,
+      deaths: r.deaths,
+      propertyDamage: r.property_damage,
+      narrative: r.narrative,
+      source: r.source,
+    }));
+
+    const hailEvents = normalize(hailData?.data);
+    const otherEvents = normalize(otherData?.data);
+
+    res.json({
+      county: fipsData?.County?.name,
+      state: fipsData?.State?.name,
+      hailCount: hailEvents.length,
+      otherCount: otherEvents.length,
+      hailEvents,
+      otherEvents,
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Health ───────────────────────────────────────────────────────────────────
