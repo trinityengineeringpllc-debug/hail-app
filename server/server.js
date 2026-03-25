@@ -320,82 +320,125 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// ─── Open-Meteo Historical Weather (no key required) ─────────────────────────
-app.get("/api/hail/radar", requireAuth, async (req, res) => {
+// ─── NOAA Storm Events CSV (auth-protected) ──────────────────────────────────
+app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
   const { lat, lon, startDate, endDate } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
   try {
-    const start = startDate || `${new Date().getFullYear() - 10}-01-01`;
-    const end = endDate || `${new Date().getFullYear()}-12-31`;
+    // Resolve county and state via FCC
+    const fipsRes = await fetch(
+      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
+    );
+    const fipsData = await fipsRes.json();
+    const countyName = fipsData?.County?.name?.toUpperCase();
+    const stateName = fipsData?.State?.name?.toUpperCase();
 
-    const url = `https://archive-api.open-meteo.com/v1/archive?` +
-      `latitude=${lat}&longitude=${lon}&` +
-      `start_date=${start}&end_date=${end}&` +
-      `daily=weather_code,precipitation_sum,windspeed_10m_max,windgusts_10m_max,precipitation_hours&` +
-      `timezone=America%2FNew_York&` +
-      `wind_speed_unit=mph&` +
-      `precipitation_unit=inch`;
-
-    const meteoRes = await fetch(url);
-
-    if (!meteoRes.ok) {
-      const errText = await meteoRes.text();
-      throw new Error(`Open-Meteo error ${meteoRes.status}: ${errText.slice(0, 300)}`);
+    if (!countyName || !stateName) {
+      return res.status(404).json({ error: "Could not resolve county" });
     }
 
-    const data = await meteoRes.json();
+    const startYear = parseInt(startDate?.slice(0, 4) || new Date().getFullYear() - 10);
+    const endYear = parseInt(endDate?.slice(0, 4) || new Date().getFullYear());
 
-    const dates = data?.daily?.time || [];
-    const codes = data?.daily?.weather_code ?? data?.daily?.weathercode ?? [];
-    const precip = data?.daily?.precipitation_sum || [];
-    const wind = data?.daily?.windspeed_10m_max || [];
-    const gusts = data?.daily?.windgusts_10m_max || [];
+    // Fetch CSV files for each year in parallel
+    const years = [];
+    for (let y = startYear; y <= endYear; y++) years.push(y);
 
-    // WMO codes: 89/90 = hail, 96/99 = thunderstorm with hail
-    const HAIL_CODES = new Set([27, 89, 90, 96, 99]);
-    const TSTORM_CODES = new Set([95, 96, 99]);
+    const csvBaseUrl = "https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles";
 
-    const hailEvents = [];
-    const significantDays = [];
+    // Fetch index to find exact filenames
+    const indexRes = await fetch(`${csvBaseUrl}/`);
+    const indexHtml = await indexRes.text();
 
-    dates.forEach((date, i) => {
-      const code = codes[i];
-      const precipIn = precip[i] || 0;
-      const windMph = wind[i] || 0;
-      const gustMph = gusts[i] || 0;
-
-      if (HAIL_CODES.has(code)) {
-        hailEvents.push({
-          date,
-          weatherCode: code,
-          hailConfidence: "Radar-Indicated",
-          precipitationIn: precipIn,
-          windSpeedMph: windMph,
-          windGustMph: gustMph,
-          source: "Open-Meteo / ERA5 Reanalysis",
-        });
-      } else if (TSTORM_CODES.has(code) || (precipIn >= 0.5 && gustMph >= 40)) {
-        significantDays.push({
-          date,
-          weatherCode: code,
-          hailConfidence: "Possible — Convective Activity",
-          precipitationIn: precipIn,
-          windSpeedMph: windMph,
-          windGustMph: gustMph,
-          source: "Open-Meteo / ERA5 Reanalysis",
-        });
+    // Extract filenames for details files (contain hail events)
+    const filePattern = /StormEvents_details-ftp_v1\.0_d(\d{4})_[^"]+\.csv\.gz/g;
+    const allFiles = [];
+    let match;
+    while ((match = filePattern.exec(indexHtml)) !== null) {
+      const year = parseInt(match[1]);
+      if (year >= startYear && year <= endYear) {
+        allFiles.push({ year, filename: match[0] });
       }
-    });
+    }
+
+    // Fetch and parse each CSV file
+    const allHailEvents = [];
+    const allOtherEvents = [];
+
+    await Promise.all(
+      allFiles.map(async ({ year, filename }) => {
+        try {
+          const csvRes = await fetch(`${csvBaseUrl}/${filename}`);
+          if (!csvRes.ok) return;
+
+          // The files are gzipped — we need to decompress
+          const buffer = await csvRes.arrayBuffer();
+          const { gunzipSync } = await import("zlib");
+          const decompressed = gunzipSync(Buffer.from(buffer)).toString("utf-8");
+
+          // Parse CSV
+          const lines = decompressed.split("\n");
+          const headers = lines[0].split(",").map(h => h.replace(/"/g, "").trim());
+
+          const getCol = (row, name) => {
+            const idx = headers.indexOf(name);
+            return idx >= 0 ? row[idx]?.replace(/"/g, "").trim() : "";
+          };
+
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const row = lines[i].split(",");
+
+            const state = getCol(row, "STATE");
+            const county = getCol(row, "CZ_NAME");
+            const eventType = getCol(row, "EVENT_TYPE");
+
+            // Filter by state and county
+            if (state !== stateName || county !== countyName) continue;
+
+            const event = {
+              date: getCol(row, "BEGIN_DATE_TIME")?.slice(0, 10)?.replace(/(\d+)-(\d+)-(\d+)/, "$3-$1-$2") || "",
+              type: eventType,
+              magnitude: getCol(row, "MAGNITUDE"),
+              magnitudeType: getCol(row, "MAGNITUDE_TYPE"),
+              location: `${getCol(row, "BEGIN_LOCATION") || county}, ${state}`,
+              county,
+              state,
+              injuries: parseInt(getCol(row, "INJURIES_DIRECT") || "0"),
+              deaths: parseInt(getCol(row, "DEATHS_DIRECT") || "0"),
+              propertyDamage: getCol(row, "DAMAGE_PROPERTY") || "0",
+              cropDamage: getCol(row, "DAMAGE_CROPS") || "0",
+              narrative: getCol(row, "EVENT_NARRATIVE"),
+              source: "NOAA Storm Events Database",
+              lat: parseFloat(getCol(row, "BEGIN_LAT")) || null,
+              lon: parseFloat(getCol(row, "BEGIN_LON")) || null,
+            };
+
+            if (eventType === "Hail") {
+              allHailEvents.push(event);
+            } else {
+              allOtherEvents.push(event);
+            }
+          }
+        } catch (e) {
+          // Skip files that fail
+        }
+      })
+    );
+
+    // Sort by date descending
+    allHailEvents.sort((a, b) => (a.date > b.date ? -1 : 1));
+    allOtherEvents.sort((a, b) => (a.date > b.date ? -1 : 1));
 
     res.json({
-      location: { lat, lon },
-      dateRange: { start, end },
-      totalDaysChecked: dates.length,
-      confirmedHailDays: hailEvents.length,
-      significantConvectiveDays: significantDays.length,
-      hailEvents,
-      significantDays,
+      county: countyName,
+      state: stateName,
+      dateRange: { start: `${startYear}-01-01`, end: `${endYear}-12-31` },
+      hailCount: allHailEvents.length,
+      otherCount: allOtherEvents.length,
+      hailEvents: allHailEvents,
+      otherEvents: allOtherEvents,
     });
 
   } catch (err) {
