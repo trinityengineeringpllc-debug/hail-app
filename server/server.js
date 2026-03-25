@@ -323,7 +323,7 @@ app.get("/api/stations", requireAuth, async (req, res) => {
 
 // ─── NOAA Storm Events CSV bulk download (auth-protected) ────────────────────
 app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
-  const { lat, lon, startDate, endDate } = req.query;
+  return res.json({ county: null, state: null, hailCount: 0, otherCount: 0, hailEvents: [], otherEvents: [] });  const { lat, lon, startDate, endDate } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
   try {
