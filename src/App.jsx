@@ -1977,12 +1977,12 @@ const directHailEvents = stormEventsData.hailEvents
     ...directHailEvents,
     ...(parsed.hailEvents || []),
   ];
-    parsed.otherEvents = (stormEventsData?.otherEvents || [])
-  .filter(e => e.type && e.date)
+  parsed.otherEvents = (stormEventsData?.otherEvents || [])
+  .filter(e => e.type && e.date && e.type !== "Hail")
   .map(e => ({
     date: e.date,
     type: e.type,
-    description: e.narrative || e.type,
+    description: `${e.type} — ${e.county || stormEventsData?.county}, ${e.state || stormEventsData?.state}${e.narrative ? ': ' + e.narrative.slice(0, 150) : ''}`,
     damage: e.propertyDamage || "N/A",
   }));
   parsed.stats = {
