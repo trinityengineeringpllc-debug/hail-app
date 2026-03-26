@@ -1957,8 +1957,9 @@ Return only valid JSON matching the schema. No markdown. No prose.`,
       parsed.location.lon = String(lon);
     }
 
-if (stormEventsData?.hailEvents?.length > 0) {
-  const directHailEvents = stormEventsData.hailEvents.map(e => ({
+if (!parsed) {
+  parsed = { location: { address, lat: String(lat), lon: String(lon), county: noaaData?.county, state: noaaData?.state }, summary: "", riskLevel: "Moderate", hailEvents: [], otherEvents: [], stats: { totalHailEvents: 0, largestHailSize: "0", avgEventsPerYear: "0", mostActiveMonth: "N/A", yearsSearched: `${new Date().getFullYear()-10}-${new Date().getFullYear()}` }, sources: [], stations: [] };
+}  const directHailEvents = stormEventsData.hailEvents.map(e => ({
     date: e.date,
     size: e.magnitude ? `${e.magnitude} inches` : "N/A",
     location: e.location || `${stormEventsData.county}, ${stormEventsData.state}`,
