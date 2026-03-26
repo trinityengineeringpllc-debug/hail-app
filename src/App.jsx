@@ -52,7 +52,8 @@ const HAIL_COLUMNS = [
 const OTHER_COLUMNS = [
   { key: "date", label: "Date", width: "0.9fr" },
   { key: "type", label: "Type", width: "1.85fr" },
-  { key: "desc", label: "Description", width: "4.8fr" },
+  { key: "location", label: "Location", width: "2.0fr" },
+  { key: "desc", label: "Description", width: "2.8fr" },
   { key: "damage", label: "Damage", width: "1.65fr" },
 ];
 
@@ -1449,6 +1450,7 @@ function OtherEventsTable({ rows, title = "Other Severe Weather Events", style =
             <div style={{ ...monoCellStyle, color: theme.purpleText, fontWeight: 700 }}>
               {row.type || "N/A"}
             </div>
+            <div style={monoCellStyle}>{row.location || "N/A"}</div>
             <div style={monoCellStyle}>{row.description || "N/A"}</div>
             <div style={{ ...monoCellStyle, color: theme.dangerText }}>
               {row.damage || "N/A"}
