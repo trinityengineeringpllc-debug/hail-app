@@ -1982,15 +1982,14 @@ if (!parsed) {
     }, "0"),
   };
 setResult(parsed);
-  }
 
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
       const idw = runIDW(lat, lon, parsed.stations);
       setIdwResult(idw);
     }
+  }
 
-    }
   } catch (err) {
     setError(err.message || "Failed to retrieve weather data.");
   } finally {
