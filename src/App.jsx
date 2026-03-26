@@ -213,7 +213,7 @@ function formatDate(dateStr) {
 function normalizeResult(result, address) {
   if (!result) return null;
 
-  const years = result?.stats?.yearsSearched || `${CURRENT_YEAR - 5}-${CURRENT_YEAR}`;
+  const years = result?.stats?.yearsSearched || `${CURRENT_YEAR - 10}-${CURRENT_YEAR}`;
 
   return {
     location: {
