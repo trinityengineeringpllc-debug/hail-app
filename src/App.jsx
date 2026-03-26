@@ -1984,8 +1984,8 @@ const directHailEvents = stormEventsData.hailEvents
   .map(e => ({
     date: e.date,
     type: e.type,
-    description: `${e.type} — ${e.county || stormEventsData?.county}, ${e.state || stormEventsData?.state}${e.narrative ? ': ' + e.narrative.slice(0, 150) : ''}`,
-    damage: e.propertyDamage || "N/A",
+location: `${e.county || stormEventsData?.county}, ${e.state || stormEventsData?.state}`,
+description: e.narrative ? e.narrative.slice(0, 150) : e.type,    damage: e.propertyDamage || "N/A",
   }));
   parsed.stats = {
     totalHailEvents: parsed.hailEvents.length,
