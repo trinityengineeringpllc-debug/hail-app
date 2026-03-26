@@ -1981,8 +1981,8 @@ if (!parsed) {
       return size > parseFloat(max) ? e.size : max;
     }, "0"),
   };
-}
 setResult(parsed);
+  }
 
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
