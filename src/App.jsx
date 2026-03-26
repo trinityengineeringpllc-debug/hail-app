@@ -1988,10 +1988,21 @@ const directHailEvents = stormEventsData.hailEvents
   parsed.stats = {
     ...parsed.stats,
     totalHailEvents: parsed.hailEvents.length,
-    largestHailSize: directHailEvents.reduce((max, e) => {
-      const size = parseFloat(e.size);
-      return size > parseFloat(max) ? e.size : max;
-    }, "0"),
+  largestHailSize: directHailEvents.reduce((max, e) => {
+  const size = parseFloat(e.size);
+  return size > parseFloat(max) ? String(size) : max;
+}, "0"),
+riskLevel: (() => {
+  const max = parseFloat(directHailEvents.reduce((m, e) => {
+    const s = parseFloat(e.size);
+    return s > parseFloat(m) ? String(s) : m;
+  }, "0"));
+  const count = directHailEvents.length;
+  if (max >= 1.75 || count >= 10) return "High";
+  if (max >= 1.00 || count >= 5) return "Moderate";
+  if (max >= 0.75 || count >= 1) return "Low";
+  return "None";
+})(),
   };
 setResult(parsed);
 
