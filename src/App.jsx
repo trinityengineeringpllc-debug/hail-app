@@ -1821,16 +1821,21 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes] = await Promise.all([
           )
 : Promise.resolve(null),
     fetch(
-      `${API}/api/noaa/stormevents?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
-      { credentials: "include", headers: authHeaders }
-    ),    ]);
+   `${API}/api/noaa/stormevents?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
+        { credentials: "include", headers: authHeaders }
+      ),
+      fetch(
+        `${API}/api/nexrad?lat=${lat}&lon=${lon}`,
+        { credentials: "include", headers: authHeaders }
+      ),    ]);
 
-   const [noaaData, lsrData, stationsData, stormEventsData] = await Promise.all([
-  noaaRes.json(),
-  lsrRes.json(),
-  stationsRes ? stationsRes.json() : null,
-  stormEventsRes.json(),
-]);
+const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Promise.all([
+      noaaRes.json(),
+      lsrRes.json(),
+      stationsRes ? stationsRes.json() : null,
+      stormEventsRes.json(),
+      nexradRes.json().catch(() => ({ hits: [] })),
+    ]);
 
     // ── Step 3: Haversine distance filter ────────────────────────────────────
     function haversineDistance(lat1, lon1, lat2, lon2) {
