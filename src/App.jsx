@@ -1986,7 +1986,6 @@ const directHailEvents = stormEventsData.hailEvents
     damage: e.propertyDamage || "N/A",
   }));
   parsed.stats = {
-    ...parsed.stats,
     totalHailEvents: parsed.hailEvents.length,
   largestHailSize: directHailEvents.reduce((max, e) => {
   const size = parseFloat(e.size);
@@ -2004,7 +2003,8 @@ riskLevel: (() => {
   return "None";
 })(),
   };
-setResult(parsed);
+parsed.riskLevel = parsed.stats.riskLevel;
+    setResult(parsed);
 
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
