@@ -1988,7 +1988,6 @@ setResult(parsed);
       const idw = runIDW(lat, lon, parsed.stations);
       setIdwResult(idw);
     }
-  }
 
   } catch (err) {
     setError(err.message || "Failed to retrieve weather data.");
