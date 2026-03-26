@@ -415,27 +415,35 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
 
     // Query NOAA SWDI for NEXRAD Level-3 hail signatures
     // nx3hail = radar-detected hail, includes max size and probability
-    const url =
-      `https://www.ncdc.noaa.gov/swdiws/csv/nx3hail/` +
-      `${startYear}0101:${endYear}1231` +
-      `?bbox=${bbox}&limit=10000`;
+// SWDI enforces 1-year max per request — fetch each year in parallel
+    const yearFetches = [];
+    for (let y = startYear; y <= endYear; y++) {
+      const url =
+        `https://www.ncdc.noaa.gov/swdiws/csv/nx3hail/` +
+        `${y}0101:${y}1231` +
+        `?bbox=${bbox}&limit=10000`;
+      yearFetches.push(
+        fetch(url, { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } })
+          .then((r) => r.ok ? r.text() : Promise.resolve(""))
+          .catch(() => "")
+      );
+    }
 
-    const swdiRes = await fetch(url, {
-      headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" },
+    const yearCsvs = await Promise.all(yearFetches);
+
+    let headers = null;
+    const records = [];
+    yearCsvs.forEach((csv) => {
+      if (!csv.trim()) return;
+      const lines = csv.trim().split("\n");
+      if (!headers) headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+      lines.slice(1).forEach((line) => {
+        const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
+        const obj = {};
+        headers.forEach((h, i) => (obj[h] = vals[i]));
+        if (obj.ZTIME && obj.MAXSIZE && parseFloat(obj.MAXSIZE) > 0) records.push(obj);
+      });
     });
-
-    if (!swdiRes.ok) throw new Error(`SWDI returned ${swdiRes.status}`);
-
-    const csv = await swdiRes.text();
-    const lines = csv.trim().split("\n");
-    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
-
-    const records = lines.slice(1).map((line) => {
-      const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
-      const obj = {};
-      headers.forEach((h, i) => (obj[h] = vals[i]));
-      return obj;
-    }).filter((r) => r.ZTIME && r.MAXSIZE && parseFloat(r.MAXSIZE) > 0);
 
     const hits = records.map((r) => ({
       date: r.ZTIME?.slice(0, 10),
