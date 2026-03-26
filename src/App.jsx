@@ -1959,9 +1959,14 @@ parsed = { location: { address, lat: String(lat), lon: String(lon), county: stor
 if (!parsed) {
   parsed = { location: { address, lat: String(lat), lon: String(lon), county: noaaData?.county, state: noaaData?.state }, summary: "", riskLevel: "Moderate", hailEvents: [], otherEvents: [], stats: { totalHailEvents: 0, largestHailSize: "0", avgEventsPerYear: "0", mostActiveMonth: "N/A", yearsSearched: `${new Date().getFullYear()-10}-${new Date().getFullYear()}` }, sources: [], stations: [] };
 }
-    const directHailEvents = stormEventsData.hailEvents.map(e => ({
+const directHailEvents = stormEventsData.hailEvents
+  .filter(e => {
+    const mag = parseFloat(e.magnitude);
+    return mag > 0 && mag <= 6 && e.magnitudeType !== "EG";
+  })
+  .map(e => ({
     date: e.date,
-    size: e.magnitude ? `${e.magnitude} inches` : "N/A",
+    size: `${e.magnitude} inches`,
     location: e.location || `${stormEventsData.county}, ${stormEventsData.state}`,
     injuries: e.injuries || 0,
     deaths: e.deaths || 0,
@@ -1972,6 +1977,14 @@ if (!parsed) {
     ...directHailEvents,
     ...(parsed.hailEvents || []),
   ];
+    parsed.otherEvents = (stormEventsData?.otherEvents || [])
+  .filter(e => e.type && e.date)
+  .map(e => ({
+    date: e.date,
+    type: e.type,
+    description: e.narrative || e.type,
+    damage: e.propertyDamage || "N/A",
+  }));
   parsed.stats = {
     ...parsed.stats,
     totalHailEvents: parsed.hailEvents.length,
