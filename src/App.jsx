@@ -1885,27 +1885,27 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes] = await Promise.all([
     const analysisMessages = [
       {
         role: "user",
-        content: `Analyze this severe weather data for the property and supplement with web search for any missing events. Return the complete report JSON.
+  content: `You are a forensic weather analyst. Return a JSON report for this property.
 
 PROPERTY: ${address}
+COUNTY: ${stormEventsData?.county || noaaData?.county}, ${stormEventsData?.state || noaaData?.state}
 COORDINATES: ${lat}, ${lon}
-LOOKBACK: ${startDate} to ${endDate}${dateClause}
+DATE OF LOSS: ${dateOfLoss || "Not provided"}
 
-TIER 1 — LSR Spotter Confirmed Hail Reports (${nearbyLsr.length} records):
-${JSON.stringify(nearbyLsr, null, 2)}
+YOUR ONLY TASKS:
+1. Write a 2-3 sentence forensic weather summary
+2. Format the Visual Crossing stations below into the stations array for IDW interpolation
+3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/"]
 
-TIER 2 — NOAA/IEM Storm Events (${nearbyEvents.length} records):
-${JSON.stringify(nearbyEvents, null, 2)}
+DO NOT populate hailEvents — leave it as [].
+DO NOT populate otherEvents — leave it as [].
+DO NOT search the web.
 
-TIER 2B — NOAA Storm Events Database Direct (${stormEventsData?.hailCount || 0} confirmed hail records):
-${JSON.stringify(stormEventsData?.hailEvents || [], null, 2)}
+VISUAL CROSSING STATION DATA:
+${stationsData ? JSON.stringify(stationsData, null, 2) : "No date of loss provided — return empty stations array."}
 
-TIER 3 — Use web search to find any additional confirmed hail or severe weather events for ${noaaData?.county || "this county"}, ${noaaData?.state || "NC"} from ${startDate} to ${endDate} not already in Tier 1 or Tier 2.
+Return ONLY valid JSON with summary, riskLevel, hailEvents:[], otherEvents:[], stats:{}, sources:[], stations:[].`,
 
-STATION OBSERVATIONS FOR DATE OF LOSS:
-${stationsData ? JSON.stringify(stationsData, null, 2) : "None — no date of loss provided."}
-
-Return only valid JSON matching the schema. No markdown. No prose.`,
       },
     ];
 
