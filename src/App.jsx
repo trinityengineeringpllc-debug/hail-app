@@ -1968,8 +1968,7 @@ const directHailEvents = stormEventsData.hailEvents
   })
   .map(e => ({
     date: e.date,
-    size: `${e.magnitude} inches`,
-    location: e.location || `${stormEventsData.county}, ${stormEventsData.state}`,
+size: `${e.magnitude} inches${(() => { const s = parseFloat(e.magnitude); if (s >= 4.50) return ' (Softball)'; if (s >= 4.00) return ' (Grapefruit)'; if (s >= 2.75) return ' (Baseball)'; if (s >= 2.50) return ' (Tennis Ball)'; if (s >= 1.75) return ' (Golf Ball)'; if (s >= 1.50) return ' (Ping Pong Ball)'; if (s >= 1.25) return ' (Half Dollar)'; if (s >= 1.00) return ' (Quarter)'; if (s >= 0.88) return ' (Nickel)'; if (s >= 0.75) return ' (Penny)'; if (s >= 0.50) return ' (Marble)'; if (s >= 0.25) return ' (Pea)'; return ''; })()}`,    location: e.location || `${stormEventsData.county}, ${stormEventsData.state}`,
     injuries: e.injuries || 0,
     deaths: e.deaths || 0,
     propertyDamage: e.propertyDamage || "N/A",
