@@ -1871,7 +1871,7 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes] = await Promise.all([
       dateRange: { start: startDate, end: endDate },
       tier1_lsr_hail_reports: nearbyLsr,
       tier2_storm_events: nearbyEvents,
-            tier2_noaa_storm_events_hail: stormEventsData?.hailEvents || [],
+      tier2_noaa_storm_events_hail: `${stormEventsData?.hailCount || 0} hail events confirmed in database — injected directly, do not regenerate`,
       tier2_noaa_storm_events_other: stormEventsData?.otherEvents || [],
 
       tier3_instructions: "Search the web for any additional hail or severe weather events near this property not already captured in Tier 1 or Tier 2 data. Search NOAA Storm Events, SPC storm reports, and NWS archives for this county.",
