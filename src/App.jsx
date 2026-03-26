@@ -1989,6 +1989,15 @@ description: e.narrative ? e.narrative.slice(0, 150) : e.type,    damage: e.prop
   }));
   parsed.stats = {
     totalHailEvents: parsed.hailEvents.length,
+avgEventsPerYear: (parsed.hailEvents.length / 10).toFixed(1),
+mostActiveMonth: (() => {
+  const counts = {};
+  parsed.hailEvents.forEach(e => {
+    const month = new Date(e.date).toLocaleString('default', { month: 'long' });
+    counts[month] = (counts[month] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+})(),
   largestHailSize: directHailEvents.reduce((max, e) => {
   const size = parseFloat(e.size);
   return size > parseFloat(max) ? String(size) : max;
