@@ -1837,6 +1837,13 @@ const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Pro
       nexradRes.json().catch(() => ({ hits: [] })),
     ]);
 
+    // — NEXRAD corroboration index ————————————————————————————
+const nexradByDate = {};
+(nexradData?.hits || []).forEach((h) => {
+  if (!nexradByDate[h.date] || parseFloat(h.maxSizeIn) > parseFloat(nexradByDate[h.date].maxSizeIn)) {
+    nexradByDate[h.date] = h;
+  }
+});
     // ── Step 3: Haversine distance filter ────────────────────────────────────
     function haversineDistance(lat1, lon1, lat2, lon2) {
       const R = 3958.8;
