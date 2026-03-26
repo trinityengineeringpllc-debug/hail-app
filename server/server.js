@@ -398,6 +398,78 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
   }
 });
 
+// ─── NEXRAD Level-3 Hail Detection (SWDI) (auth-protected) ──────────────────
+app.get("/api/nexrad", requireAuth, async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+
+  try {
+    const endYear = new Date().getFullYear();
+    const startYear = endYear - 10;
+    const bbox = [
+      (parseFloat(lon) - 0.3).toFixed(4),
+      (parseFloat(lat) - 0.3).toFixed(4),
+      (parseFloat(lon) + 0.3).toFixed(4),
+      (parseFloat(lat) + 0.3).toFixed(4),
+    ].join(",");
+
+    // Query NOAA SWDI for NEXRAD Level-3 hail signatures
+    // nx3hail = radar-detected hail, includes max size and probability
+    const url =
+      `https://www.ncdc.noaa.gov/swdiws/csv/nx3hail/` +
+      `${startYear}0101:${endYear}1231` +
+      `?bbox=${bbox}&limit=10000`;
+
+    const swdiRes = await fetch(url, {
+      headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" },
+    });
+
+    if (!swdiRes.ok) throw new Error(`SWDI returned ${swdiRes.status}`);
+
+    const csv = await swdiRes.text();
+    const lines = csv.trim().split("\n");
+    const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+
+    const records = lines.slice(1).map((line) => {
+      const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
+      const obj = {};
+      headers.forEach((h, i) => (obj[h] = vals[i]));
+      return obj;
+    }).filter((r) => r.ZTIME && r.MAXSIZE && parseFloat(r.MAXSIZE) > 0);
+
+    const hits = records.map((r) => ({
+      date: r.ZTIME?.slice(0, 10),
+      time: r.ZTIME?.slice(11, 16),
+      maxSizeIn: parseFloat(r.MAXSIZE).toFixed(2),
+      probHail: r.PROB ? parseInt(r.PROB) : null,
+      probSevere: r.SEVPROB ? parseInt(r.SEVPROB) : null,
+      radar: r.NEXRAD || null,
+      lat: r.LAT ? parseFloat(r.LAT) : null,
+      lon: r.LON ? parseFloat(r.LON) : null,
+      source: "NEXRAD Level-3 HDA / NOAA SWDI",
+    }));
+
+    // Deduplicate by date — keep max size per day
+    const byDate = {};
+    hits.forEach((h) => {
+      if (!byDate[h.date] || parseFloat(h.maxSizeIn) > parseFloat(byDate[h.date].maxSizeIn)) {
+        byDate[h.date] = h;
+      }
+    });
+
+    const deduplicated = Object.values(byDate).sort((a, b) =>
+      a.date > b.date ? -1 : 1
+    );
+
+    res.json({
+      count: deduplicated.length,
+      dateRange: { start: `${startYear}-01-01`, end: `${endYear}-12-31` },
+      hits: deduplicated,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
