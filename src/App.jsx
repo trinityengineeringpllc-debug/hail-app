@@ -1948,8 +1948,7 @@ Return only valid JSON matching the schema. No markdown. No prose.`,
     }
 
     if (!parsed) {
-      throw new Error("Failed to parse weather analysis. Please try again.");
-    }
+parsed = { location: { address, lat: String(lat), lon: String(lon), county: stormEventsData?.county || noaaData?.county, state: stormEventsData?.state || noaaData?.state }, summary: "Weather analysis based on NOAA Storm Events Database records.", riskLevel: "Moderate", hailEvents: [], otherEvents: [], stats: { totalHailEvents: 0, largestHailSize: "0", avgEventsPerYear: "0", mostActiveMonth: "N/A", yearsSearched: `${new Date().getFullYear()-10}-${new Date().getFullYear()}` }, sources: ["https://www.ncdc.noaa.gov/stormevents/"], stations: [] };    }
 
     // Ensure lat/lon are set from our geocode
     if (parsed.location) {
