@@ -1412,6 +1412,13 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
             <div style={monoCellStyle}>{formatDate(row.date)}</div>
             <div style={{ ...monoCellStyle, color: "#ffcb54", fontWeight: 700 }}>
               {row.size || "N/A"}
+              {row.nexradCorroboration && (
+                <div style={{ fontSize: 10, fontWeight: 400, marginTop: 3, color: row.nexradCorroboration.corroborated ? "#4caf50" : "#aaa" }}>
+                  ⬡ NEXRAD {row.nexradCorroboration.maxSizeIn}" 
+                  {row.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (radar est.)"}
+                  {row.nexradCorroboration.radar ? ` · ${row.nexradCorroboration.radar}` : ""}
+                </div>
+              )}
             </div>
             <div style={monoCellStyle}>{row.location || "N/A"}</div>
             <div style={{ ...monoCellStyle, color: theme.dangerText }}>
