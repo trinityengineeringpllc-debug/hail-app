@@ -1847,8 +1847,13 @@ const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Pro
     // — NEXRAD corroboration index ————————————————————————————
 const nexradByDate = {};
 (nexradData?.hits || []).forEach((h) => {
-  if (!nexradByDate[h.date] || parseFloat(h.maxSizeIn) > parseFloat(nexradByDate[h.date].maxSizeIn)) {
-    nexradByDate[h.date] = h;
+  if (!h.date) return;
+  // Normalize to DD-Mon-YYYY to match Storm Events date format
+  const d = new Date(h.date + "T00:00:00");
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const key = `${String(d.getDate()).padStart(2,"0")}-${months[d.getMonth()]}-${d.getFullYear()}`;
+  if (!nexradByDate[key] || parseFloat(h.maxSizeIn) > parseFloat(nexradByDate[key].maxSizeIn)) {
+    nexradByDate[key] = h;
   }
 });
     // ── Step 3: Haversine distance filter ────────────────────────────────────
