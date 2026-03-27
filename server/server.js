@@ -439,7 +439,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       const batch = await Promise.all(monthFetches.slice(i, i + 6));
       yearCsvs.push(...batch);
     }
-    const nonEmpty = yearCsvs.filter(c => c.trim().length > 0);
+    const nonEmpty = yearCsvs.filter(c => c.trim().length > 0 && c.includes("ZTIME"));
     console.log(`NEXRAD: ${monthFetches.length} requests, ${nonEmpty.length} non-empty responses`);
     console.log(`NEXRAD nonEmpty[0] length:`, nonEmpty[0]?.length);
     console.log(`NEXRAD nonEmpty[0] preview:`, JSON.stringify(nonEmpty[0]?.slice(0, 200)));
