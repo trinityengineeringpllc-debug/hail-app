@@ -398,7 +398,7 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
   }
 });
 
-// ─── NEXRAD Level-3 Hail Detection (SWDI) (auth-protected) ──────────────────
+// ─── NEXRAD Level-3 Hail Detection via Zoho Creator (auth-protected) ─────────
 app.get("/api/nexrad", requireAuth, async (req, res) => {
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
@@ -406,68 +406,51 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
   try {
     const endYear = new Date().getFullYear();
     const startYear = endYear - 10;
-    const bbox = [
-      (parseFloat(lon) - 0.5).toFixed(4),
-      (parseFloat(lat) - 0.5).toFixed(4),
-      (parseFloat(lon) + 0.5).toFixed(4),
-      (parseFloat(lat) + 0.5).toFixed(4),
-    ].join(",");
 
-    // Query NOAA SWDI for NEXRAD Level-3 hail signatures
-    // nx3hail = radar-detected hail, includes max size and probability
-// SWDI max window is 744 hours (~31 days) — fetch month by month
-    const monthFetches = [];
-    for (let y = startYear; y <= endYear; y++) {
-      for (let m = 1; m <= 12; m++) {
-        const mm = String(m).padStart(2, "0");
-        const lastDay = new Date(y, m, 0).getDate();
-        const url =
-          `https://www.ncei.noaa.gov/swdiws/csv/nx3hail/` +
-          `${y}${mm}01:${y}${mm}${lastDay}` +
-          `?bbox=${bbox}&limit=10000`;
-        monthFetches.push(
-          fetch(url, { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } })
-            .then((r) => r.ok ? r.text() : Promise.resolve(""))
-            .catch(() => "")
-        );
-      }
-    }
-
-// Batch requests 6 at a time to avoid SWDI rate limiting
-const yearCsvs = [];
-    for (let i = 0; i < monthFetches.length; i += 6) {
-      const batch = await Promise.all(monthFetches.slice(i, i + 6));
-      yearCsvs.push(...batch);
-      if (i + 6 < monthFetches.length) await new Promise(r => setTimeout(r, 300));
-    }
-    const nonEmpty = yearCsvs.filter(c => c.trim().length > 0 && c.includes("ZTIME"));
-    console.log(`NEXRAD: ${monthFetches.length} requests, ${nonEmpty.length} non-empty responses`);
-    console.log(`NEXRAD nonEmpty[0] length:`, nonEmpty[0]?.length);
-    console.log(`NEXRAD nonEmpty[0] preview:`, JSON.stringify(nonEmpty[0]?.slice(0, 200)));
-    
-    let headers = null;
-    const records = [];
-    nonEmpty.forEach((csv) => {
-      if (!csv.trim()) return;
-      const lines = csv.trim().split("\n");
-      if (!headers) headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
-      lines.slice(1).forEach((line) => {
-        const vals = line.split(",").map((v) => v.trim().replace(/"/g, ""));
-        const obj = {};
-        headers.forEach((h, i) => (obj[h] = vals[i]));
-        if (obj.ZTIME && obj.MAXSIZE && parseFloat(obj.MAXSIZE) > 0) records.push(obj);
-      });
+    // Get Zoho access token
+    const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+        client_id: process.env.ZOHO_CLIENT_ID,
+        client_secret: process.env.ZOHO_CLIENT_SECRET,
+        grant_type: "refresh_token",
+      }),
     });
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    if (!accessToken) throw new Error("Failed to get Zoho access token");
+
+    // Query Zoho Creator NEXRAD Hail Events by lat/lon bbox
+    const latMin = (parseFloat(lat) - 0.5).toFixed(4);
+    const latMax = (parseFloat(lat) + 0.5).toFixed(4);
+    const lonMin = (parseFloat(lon) - 0.5).toFixed(4);
+    const lonMax = (parseFloat(lon) + 0.5).toFixed(4);
+
+    const startDate = `01-Jan-${startYear}`;
+    const endDate = `31-Dec-${endYear}`;
+
+    const criteria = encodeURIComponent(
+      `lat >= "${latMin}" && lat <= "${latMax}" && lon >= "${lonMin}" && lon <= "${lonMax}" && event_date >= "${startDate}" && event_date <= "${endDate}"`
+    );
+
+    const zohoRes = await fetch(
+    `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const zohoData = await zohoRes.json();
+
+    const records = zohoData?.data || [];
 
     const hits = records.map((r) => ({
-      date: r.ZTIME?.slice(0, 10),
-      time: r.ZTIME?.slice(11, 16),
-      maxSizeIn: parseFloat(r.MAXSIZE).toFixed(2),
-      probHail: r.PROB ? parseInt(r.PROB) : null,
-      probSevere: r.SEVPROB ? parseInt(r.SEVPROB) : null,
-      radar: r.NEXRAD || null,
-      lat: r.LAT ? parseFloat(r.LAT) : null,
-      lon: r.LON ? parseFloat(r.LON) : null,
+      date: r.event_date,
+      maxSizeIn: parseFloat(r.max_size).toFixed(2),
+      probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
+      probSevere: r.prob_severe ? parseInt(r.prob_severe) : null,
+      radar: r.radar || null,
+      lat: parseFloat(r.lat),
+      lon: parseFloat(r.lon),
       source: "NEXRAD Level-3 HDA / NOAA SWDI",
     }));
 
