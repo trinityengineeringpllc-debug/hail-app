@@ -434,10 +434,11 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     }
 
 // Batch requests 6 at a time to avoid SWDI rate limiting
-    const yearCsvs = [];
+const yearCsvs = [];
     for (let i = 0; i < monthFetches.length; i += 6) {
       const batch = await Promise.all(monthFetches.slice(i, i + 6));
       yearCsvs.push(...batch);
+      if (i + 6 < monthFetches.length) await new Promise(r => setTimeout(r, 300));
     }
     const nonEmpty = yearCsvs.filter(c => c.trim().length > 0 && c.includes("ZTIME"));
     console.log(`NEXRAD: ${monthFetches.length} requests, ${nonEmpty.length} non-empty responses`);
