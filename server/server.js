@@ -446,7 +446,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     
     let headers = null;
     const records = [];
-    yearCsvs.forEach((csv) => {
+    nonEmpty.forEach((csv) => {
       if (!csv.trim()) return;
       const lines = csv.trim().split("\n");
       if (!headers) headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
