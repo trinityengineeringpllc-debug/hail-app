@@ -1921,7 +1921,7 @@ DATE OF LOSS: ${dateOfLoss || "Not provided"}
 YOUR ONLY TASKS:
 1. Write a 2-3 sentence forensic weather summary
 2. Format the Visual Crossing stations below into the stations array for IDW interpolation
-3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/"]
+3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/", "https://www.ncei.noaa.gov/access/severe-weather-data-inventory"]
 
 DO NOT populate hailEvents — leave it as [].
 DO NOT populate otherEvents — leave it as [].
