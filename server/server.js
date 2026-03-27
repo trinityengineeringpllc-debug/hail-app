@@ -423,16 +423,13 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
     // Query Zoho Creator NEXRAD Hail Events by lat/lon bbox
-    const latMin = (parseFloat(lat) - 0.5).toFixed(4);
-    const latMax = (parseFloat(lat) + 0.5).toFixed(4);
-    const lonMin = (parseFloat(lon) - 0.5).toFixed(4);
-    const lonMax = (parseFloat(lon) + 0.5).toFixed(4);
-
-    const startDate = `01-Jan-${startYear}`;
-    const endDate = `31-Dec-${endYear}`;
+    const latMin = (parseFloat(lat) - 0.5).toFixed(1);
+    const latMax = (parseFloat(lat) + 0.5).toFixed(1);
+    const lonMin = (parseFloat(lon) - 0.5).toFixed(1);
+    const lonMax = (parseFloat(lon) + 0.5).toFixed(1);
 
     const criteria = encodeURIComponent(
-      `lat >= "${latMin}" && lat <= "${latMax}" && lon >= "${lonMin}" && lon <= "${lonMax}" && event_date >= "${startDate}" && event_date <= "${endDate}"`
+      `lat >= "${latMin}" && lat <= "${latMax}" && lon >= "${lonMin}" && lon <= "${lonMax}"`
     );
 
      const zohoRes = await fetch(
