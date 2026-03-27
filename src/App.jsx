@@ -550,8 +550,9 @@ function AppHeader({ onLogout }) {
       <div className="hail-header-inner">
         {/* Left — data source badge */}
         <div className="hail-header-meta">
-          <div>DATA SOURCE: NOAA NWS</div>
-          <div>NCEI STORM EVENTS DB</div>
+        <div>DATA SOURCE: NOAA NWS</div>
+        <div>NCEI STORM EVENTS DB</div>
+        <div>NEXRAD LEVEL-III HDA</div>
         </div>
 
         {/* Center — stacked logo block */}
@@ -561,7 +562,7 @@ function AppHeader({ onLogout }) {
             <span className="hail-header-by">BY</span>
             <img src="/trinity-logo.png" alt="Trinity Engineering" className="hail-header-trinity" />
           </div>
-          <div className="hail-header-tagline">NOAA Storm Events Database · 10-Year Lookback</div>
+        <div className="hail-header-tagline">NOAA Storm Events Database · NEXRAD Level-III HDA · 10-Year Lookback</div>
         </div>
 
         {/* Right — sign out */}
