@@ -415,19 +415,25 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
 
     // Query NOAA SWDI for NEXRAD Level-3 hail signatures
     // nx3hail = radar-detected hail, includes max size and probability
-// SWDI enforces 1-year max per request — fetch each year in parallel
-    const yearFetches = [];
+// SWDI max window is 744 hours (~31 days) — fetch month by month
+    const monthFetches = [];
     for (let y = startYear; y <= endYear; y++) {
-      const url =
-        `https://www.ncdc.noaa.gov/swdiws/csv/nx3hail/` +
-        `${y}0101:${y}1231` +
-        `?bbox=${bbox}&limit=10000`;
-      yearFetches.push(
-        fetch(url, { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } })
-          .then((r) => r.ok ? r.text() : Promise.resolve(""))
-          .catch(() => "")
-      );
+      for (let m = 1; m <= 12; m++) {
+        const mm = String(m).padStart(2, "0");
+        const lastDay = new Date(y, m, 0).getDate();
+        const url =
+          `https://www.ncei.noaa.gov/swdiws/csv/nx3hail/` +
+          `${y}${mm}01:${y}${mm}${lastDay}` +
+          `?bbox=${bbox}&limit=10000`;
+        monthFetches.push(
+          fetch(url, { headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" } })
+            .then((r) => r.ok ? r.text() : Promise.resolve(""))
+            .catch(() => "")
+        );
+      }
     }
+
+    const yearCsvs = await Promise.all(monthFetches);
 
     const yearCsvs = await Promise.all(yearFetches);
 
