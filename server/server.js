@@ -407,10 +407,10 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const endYear = new Date().getFullYear();
     const startYear = endYear - 10;
     const bbox = [
-      (parseFloat(lon) - 0.3).toFixed(4),
-      (parseFloat(lat) - 0.3).toFixed(4),
-      (parseFloat(lon) + 0.3).toFixed(4),
-      (parseFloat(lat) + 0.3).toFixed(4),
+      (parseFloat(lon) - 0.5).toFixed(4),
+      (parseFloat(lat) - 0.5).toFixed(4),
+      (parseFloat(lon) + 0.5).toFixed(4),
+      (parseFloat(lat) + 0.5).toFixed(4),
     ].join(",");
 
     // Query NOAA SWDI for NEXRAD Level-3 hail signatures
