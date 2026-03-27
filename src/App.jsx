@@ -2443,10 +2443,23 @@ parsed.riskLevel = parsed.stats.riskLevel;
                   wordBreak: "break-all",
                   width: PAGE_W - 44,
                 }}
-              >
-                ↗ {s}
-              </div>
-            ))}
+           >
+        {(() => {
+          const labels = {
+            "https://www.ncdc.noaa.gov/stormevents/": "NOAA Storm Events Database",
+            "https://www.visualcrossing.com": "Visual Crossing / ASOS Station Network",
+            "https://mesonet.agron.iastate.edu/lsr/": "IEM Local Storm Reports",
+            "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/": "NEXRAD Level-III Hail Detection (NOAA SWDI)",
+          };
+          const label = labels[s];
+          return label ? (
+            <span>↗ <strong>{label}</strong><br/><span style={{fontSize:10, opacity:0.7}}>{s}</span></span>
+          ) : (
+            <span>↗ {s}</span>
+          );
+        })()}
+      </div>
+    ))}
 
             <div ref={footerMeasureRef} style={{ width: PAGE_W }}>
               <FooterMeasure />
