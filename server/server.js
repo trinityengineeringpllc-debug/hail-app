@@ -433,8 +433,10 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       }
     }
 
-    const yearCsvs = await Promise.all(monthFetches);
-
+const yearCsvs = await Promise.all(monthFetches);
+    const nonEmpty = yearCsvs.filter(c => c.trim().length > 0);
+    console.log(`NEXRAD: ${monthFetches.length} requests, ${nonEmpty.length} non-empty responses`);
+    
     let headers = null;
     const records = [];
     yearCsvs.forEach((csv) => {
