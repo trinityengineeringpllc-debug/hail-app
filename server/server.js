@@ -435,11 +435,13 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       `lat >= "${latMin}" && lat <= "${latMax}" && lon >= "${lonMin}" && lon <= "${lonMax}" && event_date >= "${startDate}" && event_date <= "${endDate}"`
     );
 
-    const zohoRes = await fetch(
-    `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
+     const zohoRes = await fetch(
+      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
     const zohoData = await zohoRes.json();
+    console.log("NEXRAD Zoho criteria:", decodeURIComponent(criteria));
+    console.log("NEXRAD Zoho response:", JSON.stringify(zohoData).slice(0, 300));
 
     const records = zohoData?.data || [];
 
