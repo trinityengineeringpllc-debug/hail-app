@@ -428,9 +428,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const lonMin = (parseFloat(lon) - 0.5).toFixed(1);
     const lonMax = (parseFloat(lon) + 0.5).toFixed(1);
 
-    const criteria = encodeURIComponent(
-      `lat >= "${latMin}" && lat <= "${latMax}" && lon >= "${lonMin}" && lon <= "${lonMax}"`
-    );
+   const criteria = encodeURIComponent(`lat > "${latMin}" && lat < "${latMax}"`);
 
      const zohoRes = await fetch(
       `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
