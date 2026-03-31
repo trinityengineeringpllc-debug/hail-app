@@ -357,6 +357,8 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const pageSize = 200;
     let hasMore = true;
 
+    console.log(`NEXRAD tile key: ${tileKey}`);
+    console.log(`NEXRAD criteria: ${decodeURIComponent(criteria)}`);
     while (hasMore) {
       const zohoRes = await fetch(
         `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&page=${page}`,
@@ -364,6 +366,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       );
       const zohoData = await zohoRes.json();
       const records = zohoData?.data || [];
+      console.log(`NEXRAD page ${page} response:`, JSON.stringify(zohoData).slice(0, 200));
       allRecords.push(...records);
       if (records.length < pageSize) {
         hasMore = false;
