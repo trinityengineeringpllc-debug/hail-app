@@ -352,7 +352,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
 
     console.log(`NEXRAD tile key: ${tileKey}`);
     // Query Zoho by exact tile match
-    const criteria = encodeURIComponent(`tile1 == "${tileKey}"`);
+    const criteria = encodeURIComponent(`tile1 = "${tileKey}"`);
     const zohoRes = await fetch(
       `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
