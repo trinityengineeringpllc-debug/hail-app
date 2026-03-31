@@ -333,7 +333,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     // Compute tile key from property lat/lon
     const tileLat = Math.floor(parseFloat(lat));
     const tileLon = Math.floor(parseFloat(lon));
-    const tileKey = `${tileLat},${tileLon}`;
+    const tileKey = `${tileLat}_${tileLon}`;
 
     // Get Zoho access token
     const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
@@ -350,18 +350,27 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
-    console.log(`NEXRAD tile key: ${tileKey}`);
-    // Query Zoho by exact tile match
+    // Paginate through all Zoho records for this tile
     const criteria = encodeURIComponent(`tile1 = "${tileKey}"`);
-    console.log(`NEXRAD criteria encoded: ${criteria}`);
-    const zohoRes = await fetch(
-      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
-    const zohoData = await zohoRes.json();
-    console.log(`NEXRAD Zoho response:`, JSON.stringify(zohoData).slice(0, 300));
+    let allRecords = [];
+    let page = 1;
+    const pageSize = 200;
+    let hasMore = true;
 
-    const records = zohoData?.data || [];
+    while (hasMore) {
+      const zohoRes = await fetch(
+        `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&page=${page}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      const zohoData = await zohoRes.json();
+      const records = zohoData?.data || [];
+      allRecords.push(...records);
+      if (records.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
 
     // Filter precisely to 0.5° bbox in Node
     const latMin = parseFloat(lat) - 0.5;
@@ -369,7 +378,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const lonMin = parseFloat(lon) - 0.5;
     const lonMax = parseFloat(lon) + 0.5;
 
-    const filtered = records.filter(r => {
+    const filtered = allRecords.filter(r => {
       const rLat = parseFloat(r.lat);
       const rLon = parseFloat(r.lon);
       return rLat >= latMin && rLat <= latMax && rLon >= lonMin && rLon <= lonMax;
@@ -380,7 +389,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       maxSizeIn: parseFloat(r.max_size).toFixed(2),
       probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
       probSevere: r.prob_severe ? parseInt(r.prob_severe) : null,
-      radar: r.radar || null,
+      radar: r.wsr_id || r.radar || null,
       lat: parseFloat(r.lat),
       lon: parseFloat(r.lon),
       source: "NEXRAD Level-3 HDA / NOAA SWDI",
