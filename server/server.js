@@ -351,8 +351,9 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
     console.log(`NEXRAD tile key: ${tileKey}`);
-    console.log(`NEXRAD criteria encoded: ${criteria}`);    // Query Zoho by exact tile match
+    // Query Zoho by exact tile match
     const criteria = encodeURIComponent(`tile1 = "${tileKey}"`);
+    console.log(`NEXRAD criteria encoded: ${criteria}`);
     const zohoRes = await fetch(
       `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
