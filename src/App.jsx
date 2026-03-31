@@ -1849,10 +1849,8 @@ const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Pro
 const nexradByDate = {};
 (nexradData?.hits || []).forEach((h) => {
   if (!h.date) return;
-  // Normalize to DD-Mon-YYYY to match Storm Events date format
-  const d = new Date(h.date + "T00:00:00");
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const key = `${String(d.getDate()).padStart(2,"0")}-${months[d.getMonth()]}-${d.getFullYear()}`;
+  // Dates from Zoho are already in DD-MMM-YYYY format — use directly as key
+  const key = h.date;
   if (!nexradByDate[key] || parseFloat(h.maxSizeIn) > parseFloat(nexradByDate[key].maxSizeIn)) {
     nexradByDate[key] = h;
   }
