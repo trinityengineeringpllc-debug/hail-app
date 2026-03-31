@@ -350,6 +350,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
+    console.log(`NEXRAD tile key: ${tileKey}`);
     // Query Zoho by exact tile match
     const criteria = encodeURIComponent(`tile1 == "${tileKey}"`);
     const zohoRes = await fetch(
