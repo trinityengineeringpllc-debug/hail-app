@@ -1834,7 +1834,7 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes] = await Promise.
       ),
       fetch(
   `${API}/api/nexrad?lat=${lat}&lon=${lon}`,
-  { credentials: "include", headers: authHeaders, signal: AbortSignal.timeout(120000) }
+  { credentials: "include", headers: authHeaders, signal: AbortSignal.timeout(300000) }
 ),
   
 const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Promise.all([
