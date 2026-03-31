@@ -358,6 +358,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
     const zohoData = await zohoRes.json();
+    console.log(`NEXRAD Zoho response:`, JSON.stringify(zohoData).slice(0, 300));
 
     const records = zohoData?.data || [];
 
