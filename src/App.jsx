@@ -1833,16 +1833,16 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes] = await Promise.
         { credentials: "include", headers: authHeaders }
       ),
       fetch(
-        `${API}/api/nexrad?lat=${lat}&lon=${lon}`,
-        { credentials: "include", headers: authHeaders }
-      ),    ]);
-
+  `${API}/api/nexrad?lat=${lat}&lon=${lon}`,
+  { credentials: "include", headers: authHeaders, signal: AbortSignal.timeout(120000) }
+),
+  
 const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Promise.all([
       noaaRes.json(),
       lsrRes.json(),
       stationsRes ? stationsRes.json() : null,
       stormEventsRes.json(),
-      nexradRes.json().catch(() => ({ hits: [] })),
+      nexradRes.json().catch((e) => { console.log('NEXRAD parse error:', e); return { hits: [] }; }),
     ]);
 
     // — NEXRAD corroboration index ————————————————————————————
