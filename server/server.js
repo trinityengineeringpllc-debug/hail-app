@@ -321,83 +321,6 @@ app.get("/api/stations", requireAuth, async (req, res) => {
   }
 });
 
-// ─── NOAA Storm Events via Zoho Creator (auth-protected) ─────────────────────
-app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
-  const { lat, lon } = req.query;
-  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
-
-  try {
-    // Resolve county and state via FCC
-    const fipsRes = await fetch(
-      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
-    );
-    const fipsData = await fipsRes.json();
-    const countyName = fipsData?.County?.name?.toUpperCase().replace(' COUNTY', '').trim();    const stateName = fipsData?.State?.name?.toUpperCase();
-
-    if (!countyName || !stateName) {
-      return res.status(404).json({ error: "Could not resolve county" });
-    }
-
-    // Get Zoho access token
-    const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type: "refresh_token",
-      }),
-    });
-    const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
-    if (!accessToken) throw new Error("Failed to get Zoho access token");
-
-    // Query Zoho Creator for hail events in this county/state
-   const hailRes = await fetch(
-`https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=county%3D%22${countyName}%22%20AND%20state%3D%22${stateName}%22%20AND%20event_type%3D%22Hail%22&limit=200`,  { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-);
-    const hailData = await hailRes.json();
-
-    // Query for other severe weather events
-    const otherRes = await fetch(
-  `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=county%3D%22${countyName}%22%20AND%20state%3D%22${stateName}%22%20AND%20event_type!%3D%22Hail%22&limit=200`,
-  { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-);
-    const otherData = await otherRes.json();
-
-    const normalize = (records) => (records || []).map(r => ({
-      date: r.event_date,
-      type: r.event_type,
-      magnitude: r.magnitude,
-      magnitudeType: r.magnitude_type,
-      location: r.location,
-      county: r.county,
-      state: r.state,
-      injuries: r.injuries,
-      deaths: r.deaths,
-      propertyDamage: r.property_damage,
-      narrative: r.narrative,
-      source: r.source,
-    }));
-
-    const hailEvents = normalize(hailData?.data);
-    const otherEvents = normalize(otherData?.data);
-
-    res.json({
-      county: fipsData?.County?.name,
-      state: fipsData?.State?.name,
-      hailCount: hailEvents.length,
-      otherCount: otherEvents.length,
-      hailEvents,
-      otherEvents,
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ─── NEXRAD Level-3 Hail Detection via Zoho Creator (auth-protected) ─────────
 app.get("/api/nexrad", requireAuth, async (req, res) => {
   const { lat, lon } = req.query;
@@ -407,6 +330,11 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const endYear = new Date().getFullYear();
     const startYear = endYear - 10;
 
+    // Compute tile key from property lat/lon
+    const tileLat = Math.floor(parseFloat(lat));
+    const tileLon = Math.floor(parseFloat(lon));
+    const tileKey = `${tileLat},${tileLon}`;
+
     // Get Zoho access token
     const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
       method: "POST",
@@ -422,25 +350,29 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
-    // Query Zoho Creator NEXRAD Hail Events by lat/lon bbox
-    const latMin = (parseFloat(lat) - 0.5).toFixed(1);
-    const latMax = (parseFloat(lat) + 0.5).toFixed(1);
-    const lonMin = (parseFloat(lon) - 0.5).toFixed(1);
-    const lonMax = (parseFloat(lon) + 0.5).toFixed(1);
-
-   const criteria = encodeURIComponent(`lat > "${latMin}" && lat < "${latMax}"`);
-
-     const zohoRes = await fetch(
+    // Query Zoho by exact tile match
+    const criteria = encodeURIComponent(`tile1 == "${tileKey}"`);
+    const zohoRes = await fetch(
       `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=1000`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
     const zohoData = await zohoRes.json();
-    console.log("NEXRAD Zoho criteria:", decodeURIComponent(criteria));
-    console.log("NEXRAD Zoho response:", JSON.stringify(zohoData).slice(0, 300));
 
     const records = zohoData?.data || [];
 
-    const hits = records.map((r) => ({
+    // Filter precisely to 0.5° bbox in Node
+    const latMin = parseFloat(lat) - 0.5;
+    const latMax = parseFloat(lat) + 0.5;
+    const lonMin = parseFloat(lon) - 0.5;
+    const lonMax = parseFloat(lon) + 0.5;
+
+    const filtered = records.filter(r => {
+      const rLat = parseFloat(r.lat);
+      const rLon = parseFloat(r.lon);
+      return rLat >= latMin && rLat <= latMax && rLon >= lonMin && rLon <= lonMax;
+    });
+
+    const hits = filtered.map((r) => ({
       date: r.event_date,
       maxSizeIn: parseFloat(r.max_size).toFixed(2),
       probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
