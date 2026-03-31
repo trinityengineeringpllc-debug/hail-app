@@ -321,7 +321,80 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── NOAA Storm Events via Zoho Creator (auth-protected) ─────────────────────
+app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
 
+  try {
+    const fipsRes = await fetch(
+      `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`
+    );
+    const fipsData = await fipsRes.json();
+    const countyName = fipsData?.County?.name?.toUpperCase().replace(' COUNTY', '').replace(' PARISH', '').trim();
+    const stateName = fipsData?.State?.name?.toUpperCase();
+
+    if (!countyName || !stateName) {
+      return res.status(404).json({ error: "Could not resolve county" });
+    }
+
+    const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+        client_id: process.env.ZOHO_CLIENT_ID,
+        client_secret: process.env.ZOHO_CLIENT_SECRET,
+        grant_type: "refresh_token",
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    if (!accessToken) throw new Error("Failed to get Zoho access token");
+
+    const hailRes = await fetch(
+      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=county%3D%22${countyName}%22%20AND%20state%3D%22${stateName}%22%20AND%20event_type%3D%22Hail%22&limit=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const hailData = await hailRes.json();
+
+    const otherRes = await fetch(
+      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=county%3D%22${countyName}%22%20AND%20state%3D%22${stateName}%22%20AND%20event_type!%3D%22Hail%22&limit=200`,
+      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+    );
+    const otherData = await otherRes.json();
+
+    const normalize = (records) => (records || []).map(r => ({
+      date: r.event_date,
+      type: r.event_type,
+      magnitude: r.magnitude,
+      magnitudeType: r.magnitude_type,
+      location: r.location,
+      county: r.county,
+      state: r.state,
+      injuries: r.injuries,
+      deaths: r.deaths,
+      propertyDamage: r.property_damage,
+      narrative: r.narrative,
+      source: r.source,
+    }));
+
+    const hailEvents = normalize(hailData?.data);
+    const otherEvents = normalize(otherData?.data);
+
+    res.json({
+      county: fipsData?.County?.name,
+      state: fipsData?.State?.name,
+      hailCount: hailEvents.length,
+      otherCount: otherEvents.length,
+      hailEvents,
+      otherEvents,
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ─── NEXRAD Level-3 Hail Detection via Zoho Creator (auth-protected) ─────────
 app.get("/api/nexrad", requireAuth, async (req, res) => {
   const { lat, lon } = req.query;
