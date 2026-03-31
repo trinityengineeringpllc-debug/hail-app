@@ -114,8 +114,8 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
     );
     const fipsData = await fipsRes.json();
     const fips = fipsData?.County?.FIPS;
-    const countyName = fipsData?.County?.name;
-    const stateName = fipsData?.State?.name;
+    const countyName = fipsData?.County?.name?.toUpperCase().replace(' COUNTY', '').replace(' PARISH', '').trim();
+    const stateName = fipsData?.State?.name?.toUpperCase();
     const stateCode = fipsData?.State?.code;
     console.log(`StormEvents county: ${countyName}, state: ${stateName}`);
 
