@@ -352,6 +352,7 @@ function normalizeResult(result, address) {
       nexradHits: result?.stats?.nexradHits ?? "—",
     },
     sources: Array.isArray(result?.sources) ? result.sources : [],
+    mcds: Array.isArray(result?.mcds) ? result.mcds : [],
   };
 }
 
