@@ -470,7 +470,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       maxSizeIn: parseFloat(r.max_size).toFixed(2),
       probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
       probSevere: r.prob_severe ? parseInt(r.prob_severe) : null,
-      radar: r.wsr_id || r.radar || r.WSR_ID || null,
+      radar: r.wsr_id || null,
       lat: parseFloat(r.lat),
       lon: parseFloat(r.lon),
       source: "NEXRAD Level-3 HDA / NOAA SWDI",
