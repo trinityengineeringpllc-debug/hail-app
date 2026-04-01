@@ -258,10 +258,30 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
             .attr("font-family",'"IBM Plex Mono", monospace').text(radarId);
         });
 
-        // Property pin — blue circle with ring
+        // 25-mile radius ring
         const propCoords = projection([propLon, propLat]);
         if (propCoords) {
-          const [px,py] = propCoords;
+          const [px, py] = propCoords;
+
+          // Calculate 25 miles in pixel space by projecting a point 25mi north
+          const milesPerDegLat = 69.0;
+          const offsetLat = propLat + (25 / milesPerDegLat);
+          const offsetCoords = projection([propLon, offsetLat]);
+          if (offsetCoords) {
+            const ringRadius = Math.abs(py - offsetCoords[1]);
+            svg.append("circle").attr("cx",px).attr("cy",py).attr("r",ringRadius)
+              .attr("fill","none")
+              .attr("stroke","rgba(118,168,255,0.2)")
+              .attr("stroke-width",1)
+              .attr("stroke-dasharray","4,4");
+            svg.append("text").attr("x",px+ringRadius+3).attr("y",py)
+              .attr("fill","rgba(118,168,255,0.45)")
+              .attr("font-size",7)
+              .attr("font-family",'"IBM Plex Mono", monospace')
+              .text("25 mi");
+          }
+
+          // Property pin
           svg.append("circle").attr("cx",px).attr("cy",py).attr("r",20)
             .attr("fill","rgba(118,168,255,0.1)").attr("stroke","rgba(118,168,255,0.25)").attr("stroke-width",1);
           svg.append("circle").attr("cx",px).attr("cy",py).attr("r",7)
