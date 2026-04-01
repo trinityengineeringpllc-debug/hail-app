@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as topojson from 'topojson-client';
+import * as d3 from 'd3';
 
 const API = import.meta.env.VITE_RENDER_URL || "";
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
@@ -130,6 +132,200 @@ function getBeamGeometry(propLat, propLon, radarId) {
     reliability,
     color,
   };
+}
+// ── US State FIPS Lookup ──────────────────────────────────────────────────────
+const STATE_FIPS = {
+  "ALABAMA":"01","ALASKA":"02","ARIZONA":"04","ARKANSAS":"05",
+  "CALIFORNIA":"06","COLORADO":"08","CONNECTICUT":"09","DELAWARE":"10",
+  "FLORIDA":"12","GEORGIA":"13","HAWAII":"15","IDAHO":"16",
+  "ILLINOIS":"17","INDIANA":"18","IOWA":"19","KANSAS":"20",
+  "KENTUCKY":"21","LOUISIANA":"22","MAINE":"23","MARYLAND":"24",
+  "MASSACHUSETTS":"25","MICHIGAN":"26","MINNESOTA":"27","MISSISSIPPI":"28",
+  "MISSOURI":"29","MONTANA":"30","NEBRASKA":"31","NEVADA":"32",
+  "NEW HAMPSHIRE":"33","NEW JERSEY":"34","NEW MEXICO":"35","NEW YORK":"36",
+  "NORTH CAROLINA":"37","NORTH DAKOTA":"38","OHIO":"39","OKLAHOMA":"40",
+  "OREGON":"41","PENNSYLVANIA":"42","RHODE ISLAND":"44","SOUTH CAROLINA":"45",
+  "SOUTH DAKOTA":"46","TENNESSEE":"47","TEXAS":"48","UTAH":"49",
+  "VERMONT":"50","VIRGINIA":"51","WASHINGTON":"53","WEST VIRGINIA":"54",
+  "WISCONSIN":"55","WYOMING":"56"
+};
+
+// ── NEXRAD Hail Map Page ──────────────────────────────────────────────────────
+function HailMapPage({ data, nexradHits = [], preview = false }) {
+  const svgRef = useRef(null);
+  const [mapStatus, setMapStatus] = useState("loading");
+
+  const propLat = parseFloat(data?.location?.lat || 0);
+  const propLon = parseFloat(data?.location?.lon || 0);
+  const stateName = (data?.location?.state || "").toUpperCase();
+  const MAP_W = 750;
+  const MAP_H = 520;
+
+  useEffect(() => {
+    if (!svgRef.current || !stateName) return;
+    let cancelled = false;
+
+    async function renderMap() {
+      try {
+        const usData = await fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json').then(r => r.json());
+        if (cancelled) return;
+
+        const fips = STATE_FIPS[stateName];
+        if (!fips) { setMapStatus("error"); return; }
+
+        const states = topojson.feature(usData, usData.objects.states);
+        const counties = topojson.feature(usData, usData.objects.counties);
+
+        const stateFeature = states.features.find(f => String(f.id).padStart(2,'0') === fips);
+        if (!stateFeature) { setMapStatus("error"); return; }
+
+        const stateCounties = {
+          type: "FeatureCollection",
+          features: counties.features.filter(f => String(f.id).padStart(5,'0').slice(0,2) === fips)
+        };
+
+        const projection = d3.geoAlbers().fitExtent([[20,20],[MAP_W-20,MAP_H-20]], stateFeature);
+        const path = d3.geoPath().projection(projection);
+
+        const svg = d3.select(svgRef.current);
+        svg.selectAll("*").remove();
+
+        // Defs
+        const defs = svg.append("defs");
+        const gf = defs.append("filter").attr("id","swi-glow").attr("x","-50%").attr("y","-50%").attr("width","200%").attr("height","200%");
+        gf.append("feGaussianBlur").attr("stdDeviation","4").attr("result","blur");
+        const m1 = gf.append("feMerge");
+        m1.append("feMergeNode").attr("in","blur");
+        m1.append("feMergeNode").attr("in","SourceGraphic");
+
+        const bf = defs.append("filter").attr("id","blue-glow").attr("x","-100%").attr("y","-100%").attr("width","300%").attr("height","300%");
+        bf.append("feGaussianBlur").attr("stdDeviation","5").attr("result","blur");
+        const m2 = bf.append("feMerge");
+        m2.append("feMergeNode").attr("in","blur");
+        m2.append("feMergeNode").attr("in","SourceGraphic");
+
+        // Background
+        svg.append("rect").attr("width",MAP_W).attr("height",MAP_H).attr("fill","#020609");
+
+        // County fills
+        svg.selectAll(".county").data(stateCounties.features).join("path")
+          .attr("d", path)
+          .attr("fill","#040c18")
+          .attr("stroke","rgba(23,50,95,0.9)")
+          .attr("stroke-width",0.6);
+
+        // State glow outline
+        svg.append("path").datum(stateFeature).attr("d",path)
+          .attr("fill","none").attr("stroke","rgba(118,168,255,0.25)")
+          .attr("stroke-width",8).attr("filter","url(#swi-glow)");
+        svg.append("path").datum(stateFeature).attr("d",path)
+          .attr("fill","none").attr("stroke","#76a8ff")
+          .attr("stroke-width",1.5);
+
+        // NEXRAD hits — deduplicate by location, size by magnitude
+        const hitsByLoc = {};
+        nexradHits.forEach(h => {
+          const key = `${parseFloat(h.lat).toFixed(1)}_${parseFloat(h.lon).toFixed(1)}`;
+          if (!hitsByLoc[key] || parseFloat(h.maxSizeIn) > parseFloat(hitsByLoc[key].maxSizeIn)) {
+            hitsByLoc[key] = h;
+          }
+        });
+        Object.values(hitsByLoc).forEach(hit => {
+          const coords = projection([parseFloat(hit.lon), parseFloat(hit.lat)]);
+          if (!coords) return;
+          const [x,y] = coords;
+          const r = Math.max(3, Math.min(9, parseFloat(hit.maxSizeIn) * 3.5));
+          svg.append("circle").attr("cx",x).attr("cy",y).attr("r",r+4)
+            .attr("fill","rgba(76,175,80,0.1)").attr("stroke","none");
+          svg.append("circle").attr("cx",x).attr("cy",y).attr("r",r)
+            .attr("fill","rgba(76,175,80,0.55)").attr("stroke","#4caf50").attr("stroke-width",0.8);
+        });
+
+        // Radar towers — yellow triangles with labels
+        const radarsShown = [...new Set(nexradHits.map(h => h.radar).filter(Boolean))];
+        radarsShown.forEach(radarId => {
+          const site = WSR88D_SITES[radarId];
+          if (!site) return;
+          const coords = projection([site.lon, site.lat]);
+          if (!coords) return;
+          const [x,y] = coords;
+          const s = 7;
+          svg.append("polygon")
+            .attr("points",`${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
+            .attr("fill","rgba(255,176,77,0.8)").attr("stroke","#ffb04d").attr("stroke-width",1);
+          svg.append("text").attr("x",x+10).attr("y",y+3)
+            .attr("fill","#ffb04d").attr("font-size",7)
+            .attr("font-family",'"IBM Plex Mono", monospace').text(radarId);
+        });
+
+        // Property pin — blue circle with ring
+        const propCoords = projection([propLon, propLat]);
+        if (propCoords) {
+          const [px,py] = propCoords;
+          svg.append("circle").attr("cx",px).attr("cy",py).attr("r",20)
+            .attr("fill","rgba(118,168,255,0.1)").attr("stroke","rgba(118,168,255,0.25)").attr("stroke-width",1);
+          svg.append("circle").attr("cx",px).attr("cy",py).attr("r",7)
+            .attr("fill","#76a8ff").attr("stroke","#ffffff").attr("stroke-width",2)
+            .attr("filter","url(#blue-glow)");
+        }
+
+        if (!cancelled) setMapStatus("ready");
+      } catch(err) {
+        console.error("Map render error:", err);
+        if (!cancelled) setMapStatus("error");
+      }
+    }
+
+    renderMap();
+    return () => { cancelled = true; };
+  }, [stateName, propLat, propLon, nexradHits.length]);
+
+  return (
+    <PdfPageShell showTopHeader={false} preview={preview}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <div>
+          <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:3 }}>
+            NEXRAD Hail Detection Map · {data?.stats?.yearsSearched || "10-Year Lookback"}
+          </div>
+          <div style={{ color:theme.text, fontWeight:700, fontSize:14 }}>
+            {data?.location?.county}, {data?.location?.state}
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:16, alignItems:"center", fontFamily:'"IBM Plex Mono", monospace', fontSize:9, color:theme.muted2 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:"#76a8ff", border:"1.5px solid #fff" }} />
+            Property
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:"rgba(76,175,80,0.6)", border:"1px solid #4caf50" }} />
+            NEXRAD Hit
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ width:0, height:0, borderLeft:"5px solid transparent", borderRight:"5px solid transparent", borderBottom:"9px solid #ffb04d" }} />
+            WSR-88D Radar
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background:"#020609", border:`1px solid ${theme.border}`, borderRadius:8, overflow:"hidden" }}>
+        {mapStatus === "loading" && (
+          <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:theme.muted2, fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
+            Loading map data...
+          </div>
+        )}
+        {mapStatus === "error" && (
+          <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:theme.muted2, fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
+            Map unavailable
+          </div>
+        )}
+        <svg ref={svgRef} width={MAP_W} height={MAP_H} style={{ display: mapStatus==="ready" ? "block" : "none" }} />
+      </div>
+
+      <div style={{ marginTop:10, color:theme.muted2, fontSize:9, fontFamily:'"IBM Plex Mono", monospace', letterSpacing:"0.08em" }}>
+        NEXRAD hits represent maximum detected hail size aloft per location · Circle size proportional to magnitude · WSR-88D sites that detected events shown
+      </div>
+    </PdfPageShell>
+  );
 }
 const PAGE_W = 794;
 const PAGE_H = 1123;
@@ -1744,6 +1940,8 @@ export default function App() {
 
   const [pages, setPages] = useState([]);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [nexradHits, setNexradHits] = useState([]);
+  const mapPageRef = useRef(null);
 
   const pageRefs = useRef([]);
   const idwPdfRef = useRef(null);
@@ -1910,6 +2108,7 @@ async function handleLookup() {
   setError("");
   setResult(null);
   setIdwResult(null);
+  setNexradHits([]);
 
   try {
     const storedToken = localStorage.getItem("hail_token");
