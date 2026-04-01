@@ -2392,6 +2392,7 @@ if (nexradCorroboratedCount > 0) {
       parsed.summary += ` ${nexradCorroboratedCount} of ${parsed.hailEvents.length} recorded hail event${parsed.hailEvents.length !== 1 ? 's' : ''} were independently detected by NEXRAD WSR-88D radar, providing multi-source corroboration.`;
     }
     parsed.mcds = spcmcdData?.mcds || [];
+    setNexradHits(nexradData?.hits || []);
     setResult(parsed);
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
