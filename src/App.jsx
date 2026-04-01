@@ -160,9 +160,6 @@ const HAIL_COLUMNS = [
   { key: "date", label: "Date", width: "0.85fr" },
   { key: "size", label: "Size", width: "2.9fr" },
   { key: "location", label: "Location", width: "1.95fr" },
-  { key: "damage", label: "Property Dmg", width: "1fr" },
-  { key: "inj", label: "Injuries", width: "0.7fr" },
-  { key: "dea", label: "Deaths", width: "0.7fr" },
 ];
 
 const OTHER_COLUMNS = [
@@ -1563,11 +1560,6 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
               )}
             </div>
             <div style={monoCellStyle}>{row.location || "N/A"}</div>
-            <div style={{ ...monoCellStyle, color: theme.dangerText }}>
-              {row.propertyDamage || "N/A"}
-            </div>
-            <div style={{ ...monoCellStyle, textAlign: "center" }}>{row.injuries ?? 0}</div>
-            <div style={{ ...monoCellStyle, textAlign: "center" }}>{row.deaths ?? 0}</div>
           </div>
         ))
       )}
@@ -2541,11 +2533,6 @@ if (nexradCorroboratedCount > 0) {
                   {row.size || "N/A"}
                 </div>
                 <div style={monoCellStyle}>{row.location || "N/A"}</div>
-                <div style={{ ...monoCellStyle, color: theme.dangerText }}>
-                  {row.propertyDamage || "N/A"}
-                </div>
-                <div style={{ ...monoCellStyle, textAlign: "center" }}>{row.injuries ?? 0}</div>
-                <div style={{ ...monoCellStyle, textAlign: "center" }}>{row.deaths ?? 0}</div>
               </div>
             ))}
 
