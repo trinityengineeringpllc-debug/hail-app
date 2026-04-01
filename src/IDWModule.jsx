@@ -341,7 +341,7 @@ function DisclaimerBlock({ result, propertyAddress, claimDate }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN IDW PANEL COMPONENT (dark-themed)
 // ─────────────────────────────────────────────────────────────────────────────
-export function IDWPanel({ idwResult, dateOfLoss, propertyAddress }) {
+export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) {
   if (!idwResult) return null;
 
   const r = idwResult;
