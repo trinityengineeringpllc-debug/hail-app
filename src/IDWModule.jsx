@@ -86,9 +86,9 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
   if (nexradHit) {
     const boost = 0.12;
     confidence = Math.min(confidence + boost, 0.97);
-    if (confidence >= 0.85) confidenceLabel = "High";
-    else if (confidence >= 0.65) confidenceLabel = "Moderate";
-    else confidenceLabel = "Low";
+    if (confidence >= 0.85) confidenceLabel = "HIGH";
+    else if (confidence >= 0.65) confidenceLabel = "MODERATE";
+    else confidenceLabel = "LOW";
     nexradBoost = {
       applied: true,
       radar: nexradHit.radar,
