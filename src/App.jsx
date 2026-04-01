@@ -1508,7 +1508,7 @@ function TableHeader({ columns }) {
   );
 }
 
-function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = {} }) {
+function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = {}, propLat = 0, propLon = 0 }) {
   return (
     <TableShell title={title} style={style}>
       <TableHeader columns={HAIL_COLUMNS} />
@@ -1546,8 +1546,8 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
                   {row.nexradCorroboration.radar ? ` · ${row.nexradCorroboration.radar}` : ""}
                   {(() => {
                     const geo = row.nexradCorroboration.radar ? getBeamGeometry(
-                      parseFloat(row.nexradCorroboration.lat || 0),
-                      parseFloat(row.nexradCorroboration.lon || 0),
+                      propLat,
+                      propLon,
                       row.nexradCorroboration.radar
                     ) : null;
                     if (!geo) return null;
@@ -1650,6 +1650,8 @@ function ReportPage({ page, data, address, preview = false }) {
               key={`${section.type}-${idx}`}
               rows={section.rows}
               title={section.title}
+              propLat={parseFloat(data?.location?.lat || 0)}
+              propLon={parseFloat(data?.location?.lon || 0)}
             />
           );
         }
