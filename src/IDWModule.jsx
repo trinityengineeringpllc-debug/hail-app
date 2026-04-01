@@ -51,7 +51,7 @@ function computeConfidence(nearestMi, stationCount, hailValues) {
   return { confidence: parseFloat(confidence.toFixed(3)), confidenceLabel };
 }
 
-export function runIDW(targetLat, targetLon, stations, power = 2) {
+export function runIDW(targetLat, targetLon, stations, nexradHit = null, power = 2) {
   if (!stations || stations.length === 0) return null;
 
   const withDistances = stations
@@ -76,11 +76,26 @@ export function runIDW(targetLat, targetLon, stations, power = 2) {
   const windGust      = weighted.reduce((sum, s) => sum + s.weight * (s.windGustMph     ?? 0), 0) / totalWeight;
 
   const nearestMi = sorted[0].distanceMiles;
-  const { confidence, confidenceLabel } = computeConfidence(
+  let { confidence, confidenceLabel } = computeConfidence(
     nearestMi,
     sorted.length,
     sorted.map((s) => s.hailSizeIn ?? 0)
   );
+
+  let nexradBoost = null;
+  if (nexradHit) {
+    const boost = 0.12;
+    confidence = Math.min(confidence + boost, 0.97);
+    if (confidence >= 0.85) confidenceLabel = "High";
+    else if (confidence >= 0.65) confidenceLabel = "Moderate";
+    else confidenceLabel = "Low";
+    nexradBoost = {
+      applied: true,
+      radar: nexradHit.radar,
+      maxSizeIn: nexradHit.maxSizeIn,
+      note: `Confidence boosted +12% — NEXRAD (WSR-88D) detected ${nexradHit.maxSizeIn}" hail aloft on date of loss${nexradHit.radar ? ` via ${nexradHit.radar}` : ""}.`,
+    };
+  }
 
   return {
     hailSizeIn:         parseFloat(hailSize.toFixed(2)),
@@ -94,6 +109,7 @@ export function runIDW(targetLat, targetLon, stations, power = 2) {
     nearestStationName: sorted[0].name,
     confidence,
     confidenceLabel,
+    nexradBoost,
     stationsUsed: weighted.map((s) => ({
       id:              s.id,
       name:            s.name,
@@ -408,6 +424,19 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
           <div style={{ color: T.muted2, fontSize: 9, marginTop: 5, fontFamily: '"IBM Plex Mono", monospace' }}>
             {r.stationCount} stations · nearest {r.nearestStationMiles} mi
           </div>
+          {r.nexradBoost && (
+            <div style={{
+              marginTop: 6,
+              color: "#4caf50",
+              fontSize: 9,
+              fontFamily: '"IBM Plex Mono", monospace',
+              lineHeight: 1.6,
+              maxWidth: 220,
+              textAlign: "right",
+            }}>
+              ▲ {r.nexradBoost.note}
+            </div>
+          )}
         </div>
       </div>
 
