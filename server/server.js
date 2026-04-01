@@ -517,7 +517,8 @@ console.log('MCD sample:', JSON.stringify(data?.mcds?.[0]));
       const issued = new Date(mcd.utc_issue);
       return Math.abs(issued - dolDate) <= windowMs;
     }).map(mcd => ({
-      number: mcd.num,
+      number: mcd.product_num,
+      url: mcd.spcurl,
       year: mcd.year,
       issued: mcd.utc_issue,
       expired: mcd.utc_expire,
@@ -525,7 +526,6 @@ console.log('MCD sample:', JSON.stringify(data?.mcds?.[0]));
       hailThreat: mcd.most_prob_hail,
       tornadoThreat: mcd.most_prob_tornado,
       watchConfidence: mcd.watch_confidence,
-      url: `https://www.spc.noaa.gov/products/md/${mcd.year}/md${String(mcd.num).padStart(4,'0')}.html`,
     }));
 
     res.json({ count: relevant.length, mcds: relevant });
