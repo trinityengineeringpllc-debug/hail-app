@@ -233,6 +233,7 @@ function normalizeResult(result, address) {
       avgEventsPerYear: result?.stats?.avgEventsPerYear || "0.0",
       mostActiveMonth: result?.stats?.mostActiveMonth || "N/A",
       yearsSearched: years,
+      nexradHits: result?.stats?.nexradHits ?? "—",
     },
     sources: Array.isArray(result?.sources) ? result.sources : [],
   };
