@@ -117,7 +117,6 @@ app.get("/api/noaa/events", requireAuth, async (req, res) => {
     const countyName = fipsData?.County?.name?.toUpperCase().replace(' COUNTY', '').replace(' PARISH', '').trim();
     const stateName = fipsData?.State?.name?.toUpperCase();
     const stateCode = fipsData?.State?.code;
-    console.log(`StormEvents county: ${countyName}, state: ${stateName}`);
 
     if (!fips) return res.status(404).json({ error: "Could not resolve county FIPS" });
 
@@ -431,8 +430,6 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const pageSize = 200;
     let hasMore = true;
 
-    console.log(`NEXRAD tile key: ${tileKey}`);
-    console.log(`NEXRAD criteria: ${decodeURIComponent(criteria)}`);
     while (hasMore) {
       const zohoRes = await fetch(
     `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize + 1}`,
@@ -440,7 +437,6 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       );
       const zohoData = await zohoRes.json();
       const records = zohoData?.data || [];
-      console.log(`NEXRAD page ${page} response:`, JSON.stringify(zohoData).slice(0, 200));
       allRecords.push(...records);
       if (records.length < pageSize) {
         hasMore = false;
