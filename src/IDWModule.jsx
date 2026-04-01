@@ -566,6 +566,56 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress }) {
             </div>
           ))}
         </div>
+      {mcds && mcds.length > 0 && (
+        <div style={{
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: `1px solid ${T.borderSoft}`,
+        }}>
+          <div style={{
+            color: T.muted2,
+            fontSize: 9,
+            letterSpacing: "0.15em",
+            fontFamily: '"IBM Plex Mono", monospace',
+            textTransform: "uppercase",
+            marginBottom: 10,
+          }}>
+            Mesoscale Discussions — Date of Loss
+          </div>
+          {mcds.map((mcd, i) => (
+            <div key={i} style={{
+              marginBottom: 8,
+              paddingBottom: 8,
+              borderBottom: i < mcds.length - 1 ? `1px solid ${T.borderSoft}` : "none",
+            }}>
+              <div style={{
+                color: T.blueBright,
+                fontSize: 11,
+                fontFamily: '"IBM Plex Mono", monospace',
+                fontWeight: 700,
+                marginBottom: 2,
+              }}>
+                MCD #{String(mcd.number).padStart(4, '0')} · {new Date(mcd.issued).toUTCString().slice(0, 22)} UTC
+              </div>
+              <div style={{
+                color: T.muted,
+                fontSize: 10,
+                fontFamily: '"IBM Plex Mono", monospace',
+                marginBottom: 3,
+              }}>
+                {mcd.concerning || "Severe weather threat identified"}
+              </div>
+              <div style={{
+                color: T.blue,
+                fontSize: 10,
+                fontFamily: '"IBM Plex Mono", monospace',
+              }}>
+                ↗ {mcd.url}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       </div>
     </div>
   );
