@@ -363,6 +363,7 @@ console.log(`StormEvents querying: county="${countyName}" state="${stateName}"`)
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
     const otherData = await otherRes.json();
+    console.log(`StormEvents other response code:`, otherData?.code, `count:`, otherData?.data?.length, `sample state:`, otherData?.data?.[0]?.state, `sample county:`, otherData?.data?.[0]?.county);
 
     const normalize = (records) => (records || []).map(r => ({
       date: r.event_date,
