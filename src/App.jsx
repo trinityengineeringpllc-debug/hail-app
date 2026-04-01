@@ -398,7 +398,7 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
           }
         };
 
-        const projection = d3.geoAlbers().fitExtent([[10,10],[MAP_W-10,MAP_H-10]], bboxFeature);
+        const projection = d3.geoMercator().fitExtent([[10,10],[MAP_W-10,MAP_H-10]], bboxFeature);
         const path = d3.geoPath().projection(projection);
 
         const svg = d3.select(svgRef.current);
