@@ -356,8 +356,11 @@ console.log(`StormEvents querying: county="${countyName}" state="${stateName}"`)
       `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=county%3D%22${countyName}%22%20AND%20state%3D%22${stateName}%22%20AND%20event_type%3D%22Hail%22&limit=200`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
     );
-    const hailData = await hailRes.json();
-
+    const hailDataRaw = await hailRes.json();
+    hailDataRaw.data = (hailDataRaw?.data || []).filter(r =>
+      r.state === stateName && r.county === countyName
+    );
+    const hailData = hailDataRaw;
     const otherRes = await fetch(
     `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=${encodeURIComponent(`county="${countyName}" AND state="${stateName}" AND event_type!="Hail"`)}&limit=200`,
       { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
@@ -366,7 +369,7 @@ console.log(`StormEvents querying: county="${countyName}" state="${stateName}"`)
     otherDataRaw.data = (otherDataRaw?.data || []).filter(r => 
       r.state === stateName && r.county === countyName
     );
-    const otherData = otherDataRaw;    console.log(`StormEvents other response code:`, otherData?.code, `count:`, otherData?.data?.length, `sample state:`, otherData?.data?.[0]?.state, `sample county:`, otherData?.data?.[0]?.county);
+    const otherData = otherDataRaw;
 
     const normalize = (records) => (records || []).map(r => ({
       date: r.event_date,
