@@ -336,7 +336,6 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     if (!countyName || !stateName) {
       return res.status(404).json({ error: "Could not resolve county" });
     }
-console.log(`StormEvents querying: county="${countyName}" state="${stateName}"`);
     
     const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
       method: "POST",
@@ -445,7 +444,6 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       );
       const zohoData = await zohoRes.json();
       const records = zohoData?.data || [];
-      if (records.length > 0) console.log('NEXRAD sample record:', JSON.stringify(records[0]));
       allRecords.push(...records);
       if (records.length < pageSize) {
         hasMore = false;
