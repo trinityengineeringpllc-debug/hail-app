@@ -512,7 +512,6 @@ app.get("/api/spcmcd", requireAuth, async (req, res) => {
     // Filter to MCDs valid within ±1 day of the date of loss
     const dolDate = new Date(date + "T12:00:00Z");
     const windowMs = 24 * 60 * 60 * 1000;
-console.log('MCD sample:', JSON.stringify(data?.mcds?.[0]));
     const relevant = (data?.mcds || []).filter(mcd => {
       const issued = new Date(mcd.utc_issue);
       return Math.abs(issued - dolDate) <= windowMs;
