@@ -2198,9 +2198,9 @@ if (nexradCorroboratedCount > 0) {
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
       const dolNexradHit = nexradData?.hits?.find(h => {
         const hDate = h.date;
-        const dol = new Date(dateOfLoss);
+        const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        const hDateFormatted = `${String(dol.getDate()).padStart(2,"0")}-${months[dol.getMonth()]}-${dol.getFullYear()}`;
+        const hDateFormatted = `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
         console.log('comparing:', hDate, 'vs', hDateFormatted);
         return hDate === hDateFormatted;
       });
