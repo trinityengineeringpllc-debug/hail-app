@@ -1279,18 +1279,19 @@ function WeatherSummary({ text }) {
 }
 
 function StatsGrid({ stats }) {
-  const items = [
+const items = [
     { label: "Total Hail Events", value: stats.totalHailEvents },
     { label: "Largest Hail", value: stats.largestHailSize },
     { label: "Avg / Year", value: stats.avgEventsPerYear },
     { label: "Most Active Month", value: stats.mostActiveMonth },
+    { label: "NEXRAD Hits", value: stats.nexradHits ?? "—" },
   ];
 
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
+        gridTemplateColumns: "repeat(5, 1fr)",
         gap: 12,
         marginBottom: SECTION_GAP,
       }}
@@ -1415,7 +1416,15 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
               {row.size || "N/A"}
               {row.nexradCorroboration && (
                 <div style={{ fontSize: 10, fontWeight: 400, marginTop: 3, color: row.nexradCorroboration.corroborated ? "#4caf50" : "#aaa" }}>
-                  ⬡ NEXRAD {row.nexradCorroboration.maxSizeIn}" 
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{width:10,height:10,marginRight:3,verticalAlign:'middle',display:'inline-block'}}>
+                    <path d="M1 11 A9 9 0 0 1 19 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M3.5 11 A6.5 6.5 0 0 1 16.5 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M6 11 A4 4 0 0 1 14 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="10" cy="11" r="1.5"/>
+                    <rect x="9" y="11" width="2" height="4" rx="0.5"/>
+                    <rect x="4" y="15" width="12" height="2" rx="1"/>
+                  </svg>
+                  {` NEXRAD (WSR-88D) ${row.nexradCorroboration.maxSizeIn}" aloft`}
                   {row.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (independent radar detection)"}
                   {row.nexradCorroboration.radar ? ` · ${row.nexradCorroboration.radar}` : ""}
                 </div>
@@ -1920,7 +1929,7 @@ DATE OF LOSS: ${dateOfLoss || "Not provided"}
 YOUR ONLY TASKS:
 1. Write a 2-3 sentence forensic weather summary
 2. Format the Visual Crossing stations below into the stations array for IDW interpolation
-3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/", "https://www.ncei.noaa.gov/access/severe-weather-data-inventory"]
+3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/", "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11D.pdf"]
 
 DO NOT populate hailEvents — leave it as [].
 DO NOT populate otherEvents — leave it as [].
@@ -2016,8 +2025,11 @@ const directHailEvents = stormEventsData.hailEvents
 location: `${e.county || stormEventsData?.county}, ${e.state || stormEventsData?.state}`,
 description: e.narrative ? e.narrative.slice(0, 150) : e.type,    damage: e.propertyDamage || "N/A",
   }));
+  const nexradHitCount = Object.keys(nexradByDate).length;
+  const nexradCorroboratedCount = parsed.hailEvents.filter(e => e.nexradCorroboration !== null).length;
   parsed.stats = {
     totalHailEvents: parsed.hailEvents.length,
+    nexradHits: nexradHitCount,
 avgEventsPerYear: (parsed.hailEvents.length / 10).toFixed(1),
 mostActiveMonth: (() => {
   const counts = {};
@@ -2044,8 +2056,10 @@ riskLevel: (() => {
 })(),
   };
 parsed.riskLevel = parsed.stats.riskLevel;
+if (nexradCorroboratedCount > 0) {
+      parsed.summary += ` ${nexradCorroboratedCount} of ${parsed.hailEvents.length} recorded hail event${parsed.hailEvents.length !== 1 ? 's' : ''} were independently detected by NEXRAD WSR-88D radar, providing multi-source corroboration.`;
+    }
     setResult(parsed);
-
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
       const idw = runIDW(lat, lon, parsed.stations);
@@ -2448,6 +2462,7 @@ parsed.riskLevel = parsed.stats.riskLevel;
             "https://www.visualcrossing.com": "Visual Crossing / ASOS Station Network",
             "https://mesonet.agron.iastate.edu/lsr/": "IEM Local Storm Reports",
             "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/": "NEXRAD Level-III Hail Detection (NOAA SWDI)",
+            "https://www.ofcm.gov/publications/fmh/FMH11/FMH11D.pdf": "Federal Meteorological Handbook No. 11D (FMH-11D) — WSR-88D Radar Methodology",
           };
           const label = labels[s];
           return label ? (
