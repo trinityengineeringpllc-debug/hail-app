@@ -1977,14 +1977,21 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes] = await Promise.
       fetch(
   `${API}/api/nexrad?lat=${lat}&lon=${lon}`,
 { credentials: "include", headers: authHeaders, signal: AbortSignal.timeout(300000) }
-),    ]);
+),
+      dateOfLoss
+        ? fetch(
+            `${API}/api/spcmcd?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
+            { credentials: "include", headers: authHeaders }
+          )
+        : Promise.resolve(null),    ]);
   
-const [noaaData, lsrData, stationsData, stormEventsData, nexradData] = await Promise.all([
+const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData] = await Promise.all([
       noaaRes.json(),
       lsrRes.json(),
       stationsRes ? stationsRes.json() : null,
       stormEventsRes.json(),
       nexradRes.json().catch((e) => { console.log('NEXRAD parse error:', e); return { hits: [] }; }),
+      spcmcdRes ? spcmcdRes.json().catch(() => ({ mcds: [] })) : Promise.resolve({ mcds: [] }),
     ]);
 
     // — NEXRAD corroboration index ————————————————————————————
@@ -2192,6 +2199,7 @@ parsed.riskLevel = parsed.stats.riskLevel;
 if (nexradCorroboratedCount > 0) {
       parsed.summary += ` ${nexradCorroboratedCount} of ${parsed.hailEvents.length} recorded hail event${parsed.hailEvents.length !== 1 ? 's' : ''} were independently detected by NEXRAD WSR-88D radar, providing multi-source corroboration.`;
     }
+    parsed.mcds = spcmcdData?.mcds || [];
     setResult(parsed);
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
