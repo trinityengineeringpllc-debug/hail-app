@@ -2474,6 +2474,7 @@ if (nexradCorroboratedCount > 0) {
                   idwResult={idwResult}
                   dateOfLoss={dateOfLoss}
                   propertyAddress={normalized.location.address}
+                  mcds={normalized?.mcds || []}
                 />
               </div>
             )}
@@ -2680,6 +2681,7 @@ if (nexradCorroboratedCount > 0) {
                   idwResult={idwResult}
                   dateOfLoss={dateOfLoss}
                   propertyAddress={normalized.location.address}
+                  mcds={normalized?.mcds || []}
                 />
                 {/* Footer */}
                 <div style={{ textAlign: "center", marginTop: 32, paddingTop: 16, borderTop: `1px solid ${theme.borderSoft}` }}>
