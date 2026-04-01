@@ -496,6 +496,43 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── SPC Mesoscale Discussions (auth-protected) ───────────────────────────────
+app.get("/api/spcmcd", requireAuth, async (req, res) => {
+  const { lat, lon, date } = req.query;
+  if (!lat || !lon || !date) return res.status(400).json({ error: "lat, lon, and date required" });
+
+  try {
+    const url = `https://mesonet.agron.iastate.edu/json/spcmcd.py?lat=${lat}&lon=${lon}`;
+    const iemRes = await fetch(url, {
+      headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" }
+    });
+    if (!iemRes.ok) throw new Error(`IEM MCD API returned ${iemRes.status}`);
+    const data = await iemRes.json();
+
+    // Filter to MCDs valid within ±1 day of the date of loss
+    const dolDate = new Date(date + "T12:00:00Z");
+    const windowMs = 24 * 60 * 60 * 1000;
+
+    const relevant = (data?.mcds || []).filter(mcd => {
+      const issued = new Date(mcd.utc_issue);
+      return Math.abs(issued - dolDate) <= windowMs;
+    }).map(mcd => ({
+      number: mcd.num,
+      year: mcd.year,
+      issued: mcd.utc_issue,
+      expired: mcd.utc_expire,
+      concerning: mcd.concerning,
+      hailThreat: mcd.most_prob_hail,
+      tornadoThreat: mcd.most_prob_tornado,
+      watchConfidence: mcd.watch_confidence,
+      url: `https://www.spc.noaa.gov/products/md/${mcd.year}/md${String(mcd.num).padStart(4,'0')}.html`,
+    }));
+
+    res.json({ count: relevant.length, mcds: relevant });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
