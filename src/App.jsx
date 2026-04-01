@@ -2201,7 +2201,6 @@ if (nexradCorroboratedCount > 0) {
         const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         const hDateFormatted = `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
-        console.log('comparing:', hDate, 'vs', hDateFormatted);
         return hDate === hDateFormatted;
       });
       const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null);
