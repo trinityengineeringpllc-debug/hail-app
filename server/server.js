@@ -440,7 +440,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
 
     while (hasMore) {
       const zohoRes = await fetch(
-    `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize}`,
+    `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize}&fields=event_date,lat,lon,max_size,prob_hail,prob_severe,radar,wsr_id,tile1`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
