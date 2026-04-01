@@ -2895,6 +2895,11 @@ if (nexradCorroboratedCount > 0) {
                   propertyAddress={normalized.location.address}
                   mcds={normalized?.mcds || []}
                 />
+                <DolNexradMap
+                  data={normalized}
+                  nexradHits={nexradHits}
+                  dateOfLoss={dateOfLoss}
+                />
               </div>
             )}
 
