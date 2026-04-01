@@ -305,7 +305,7 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
         <div>
           <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:3 }}>
-            NEXRAD Hail Detection Map · {data?.stats?.yearsSearched || "10-Year Lookback"}
+            10-Year NEXRAD Hail Detection Pattern · {data?.stats?.yearsSearched || "2016–2026"}
           </div>
           <div style={{ color:theme.text, fontWeight:700, fontSize:14 }}>
             {data?.location?.county}, {data?.location?.state}
