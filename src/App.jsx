@@ -2196,7 +2196,14 @@ if (nexradCorroboratedCount > 0) {
     setResult(parsed);
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
-      const idw = runIDW(lat, lon, parsed.stations);
+      const dolNexradHit = nexradData?.hits?.find(h => {
+        const hDate = h.date; // DD-MMM-YYYY
+        const dol = new Date(dateOfLoss);
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const hDateFormatted = `${String(dol.getDate()).padStart(2,"0")}-${months[dol.getMonth()]}-${dol.getFullYear()}`;
+        return hDate === hDateFormatted;
+      });
+      const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null);
       setIdwResult(idw);
     }
 
