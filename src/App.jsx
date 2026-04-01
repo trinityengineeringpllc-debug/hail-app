@@ -2653,6 +2653,12 @@ if (nexradCorroboratedCount > 0) {
                 address={address}
                 pages={pages}
               />
+              {/* Map preview */}
+              <div style={{ marginTop:18, width:"100%", overflowX:"auto", borderRadius:14, border:`1px solid ${theme.borderSoft}`, background:"#01040a", padding:10 }}>
+                <div style={{ width:PAGE_W }}>
+                  <HailMapPage data={normalized} nexradHits={nexradHits} preview />
+                </div>
+              </div>
             </div>
 
             {/* IDW Storm Interpolation Panel — only shows when Date of Loss is set */}
