@@ -2452,7 +2452,21 @@ if (nexradCorroboratedCount > 0) {
         pdf.rect(0, 0, pdfW, pdfH, "F");
         pdf.addImage(img, "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
       }
-
+      // Add map page
+      if (mapPageRef.current) {
+        const mapCanvas = await html2canvas(mapPageRef.current, {
+          backgroundColor: theme.pageBg,
+          scale: 2.2,
+          useCORS: true,
+          logging: false,
+          windowWidth: PAGE_W,
+          windowHeight: PAGE_H,
+        });
+        pdf.addPage();
+        pdf.setFillColor(3, 7, 15);
+        pdf.rect(0, 0, pdfW, pdfH, "F");
+        pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
+      }
       // Add IDW page if date of loss was set and IDW computed
       if (idwResult && idwPdfRef.current) {
         const idwNode = idwPdfRef.current;
@@ -2843,7 +2857,12 @@ if (nexradCorroboratedCount > 0) {
                   <ReportPage page={page} data={normalized} address={address} />
                 </div>
               ))}
-
+            {/* Hidden Map PDF page */}
+            {normalized && (
+              <div ref={mapPageRef} style={{ width:PAGE_W, height:PAGE_H }}>
+                <HailMapPage data={normalized} nexradHits={nexradHits} />
+              </div>
+            )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
             {idwResult && (
               <div
