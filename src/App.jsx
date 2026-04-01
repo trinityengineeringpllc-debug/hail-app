@@ -15,6 +15,122 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 const CURRENT_YEAR = new Date().getFullYear();
+// ── WSR-88D Radar Site Lookup Table ──────────────────────────────────────────
+const WSR88D_SITES = {
+  KABR:{lat:45.4558,lon:-98.4132,elev:1302},KABX:{lat:35.1497,lon:-106.8239,elev:5870},
+  KAKQ:{lat:36.9839,lon:-77.0073,elev:112},KAMA:{lat:35.2333,lon:-101.7092,elev:3587},
+  KAMX:{lat:25.6111,lon:-80.4128,elev:14},KAPX:{lat:44.9072,lon:-84.7197,elev:1464},
+  KARX:{lat:43.8228,lon:-91.1912,elev:1276},KATX:{lat:48.1945,lon:-122.4958,elev:494},
+  KBBX:{lat:39.4957,lon:-121.6316,elev:173},KBGM:{lat:42.1997,lon:-75.9847,elev:1606},
+  KBHX:{lat:40.4986,lon:-124.2919,elev:2326},KBIS:{lat:46.7708,lon:-100.7603,elev:1658},
+  KBLX:{lat:45.8537,lon:-108.6068,elev:3598},KBMX:{lat:33.1722,lon:-86.7697,elev:645},
+  KBOX:{lat:41.9558,lon:-71.1372,elev:118},KBRO:{lat:25.9161,lon:-97.4189,elev:23},
+  KBUF:{lat:42.9489,lon:-78.7369,elev:693},KBYX:{lat:24.5975,lon:-81.7033,elev:8},
+  KCAE:{lat:33.9488,lon:-81.1181,elev:231},KCBW:{lat:46.0392,lon:-67.8067,elev:746},
+  KCBX:{lat:43.4906,lon:-116.2356,elev:3061},KCCX:{lat:40.9228,lon:-78.0036,elev:2405},
+  KCLE:{lat:41.4132,lon:-81.8597,elev:763},KCLX:{lat:32.6553,lon:-81.0422,elev:165},
+  KCRP:{lat:27.7839,lon:-97.5111,elev:45},KCXX:{lat:44.5111,lon:-73.1661,elev:317},
+  KCYS:{lat:41.1519,lon:-104.8061,elev:6128},KDAX:{lat:38.5011,lon:-121.6778,elev:30},
+  KDDC:{lat:37.7608,lon:-99.9686,elev:2590},KDFX:{lat:29.2731,lon:-100.2803,elev:1131},
+  KDGX:{lat:32.2797,lon:-89.9844,elev:623},KDLH:{lat:46.8369,lon:-92.2097,elev:1428},
+  KDMX:{lat:41.7311,lon:-93.7228,elev:981},KDOX:{lat:38.8257,lon:-75.4400,elev:50},
+  KDTX:{lat:42.6997,lon:-83.4717,elev:1072},KDVN:{lat:41.6117,lon:-90.5808,elev:754},
+  KDYX:{lat:32.5386,lon:-99.2544,elev:1517},KEAX:{lat:38.8103,lon:-94.2644,elev:995},
+  KEMX:{lat:31.8936,lon:-110.6303,elev:5202},KENX:{lat:42.5864,lon:-74.0639,elev:1826},
+  KEOX:{lat:31.4603,lon:-85.4594,elev:444},KEPZ:{lat:31.8731,lon:-106.6983,elev:4104},
+  KESX:{lat:35.7011,lon:-114.8919,elev:4867},KEVX:{lat:30.5644,lon:-85.9214,elev:140},
+  KEWX:{lat:29.7039,lon:-98.0281,elev:909},KEYX:{lat:35.0978,lon:-117.5608,elev:2757},
+  KFCX:{lat:37.0242,lon:-80.2742,elev:2868},KFDR:{lat:34.3622,lon:-98.9764,elev:1267},
+  KFFC:{lat:33.3636,lon:-84.5658,elev:858},KFSD:{lat:43.5878,lon:-96.7294,elev:1429},
+  KFSX:{lat:34.5744,lon:-111.1983,elev:7247},KFTG:{lat:39.7867,lon:-104.5458,elev:5497},
+  KFWS:{lat:32.5728,lon:-97.3031,elev:686},KGGW:{lat:48.2064,lon:-106.6247,elev:2278},
+  KGJX:{lat:39.0622,lon:-108.2139,elev:9992},KGLD:{lat:39.3667,lon:-101.7003,elev:3651},
+  KGRB:{lat:44.4986,lon:-88.1111,elev:682},KGRK:{lat:30.7217,lon:-97.3828,elev:538},
+  KGRR:{lat:42.8939,lon:-85.5447,elev:778},KGSP:{lat:34.8833,lon:-82.2203,elev:940},
+  KGWX:{lat:33.8967,lon:-88.3292,elev:476},KGYX:{lat:43.8913,lon:-70.2569,elev:399},
+  KHDX:{lat:33.0769,lon:-106.1228,elev:4222},KHGX:{lat:29.4719,lon:-95.0792,elev:18},
+  KHNX:{lat:36.3142,lon:-119.6322,elev:243},KHPX:{lat:36.7369,lon:-87.2847,elev:576},
+  KHTX:{lat:34.9306,lon:-86.0836,elev:1760},KICT:{lat:37.6544,lon:-97.4428,elev:1335},
+  KICX:{lat:37.5908,lon:-112.8622,elev:10600},KILN:{lat:39.4203,lon:-83.8217,elev:1056},
+  KILX:{lat:40.1506,lon:-89.3367,elev:582},KIND:{lat:39.7075,lon:-86.2803,elev:790},
+  KINX:{lat:36.1750,lon:-95.5644,elev:668},KIWA:{lat:33.2892,lon:-111.6700,elev:1353},
+  KIWX:{lat:41.4086,lon:-85.7000,elev:960},KJAX:{lat:30.4847,lon:-81.7019,elev:33},
+  KJGX:{lat:32.6756,lon:-83.3511,elev:521},KJKL:{lat:37.5908,lon:-83.3131,elev:1364},
+  KLBB:{lat:33.6541,lon:-101.8139,elev:3259},KLCH:{lat:30.1253,lon:-93.2158,elev:13},
+  KLIX:{lat:30.3367,lon:-89.8253,elev:24},KLNX:{lat:41.9578,lon:-100.5758,elev:2970},
+  KLOT:{lat:41.6044,lon:-88.0847,elev:663},KLRX:{lat:40.7397,lon:-116.8028,elev:6699},
+  KLSX:{lat:38.6986,lon:-90.6828,elev:608},KLTX:{lat:33.9894,lon:-78.4292,elev:64},
+  KLVX:{lat:37.9753,lon:-85.9439,elev:719},KLWX:{lat:38.9753,lon:-77.4778,elev:272},
+  KLZK:{lat:34.8364,lon:-92.2619,elev:568},KMAF:{lat:31.9433,lon:-102.1894,elev:2868},
+  KMAX:{lat:42.0811,lon:-122.7172,elev:7513},KMBX:{lat:48.3925,lon:-100.8644,elev:1490},
+  KMHX:{lat:34.7761,lon:-76.8764,elev:31},KMKX:{lat:42.9678,lon:-88.5506,elev:958},
+  KMLB:{lat:28.1133,lon:-80.6542,elev:99},KMOB:{lat:30.6797,lon:-88.2397,elev:208},
+  KMPX:{lat:44.8489,lon:-93.5653,elev:946},KMQT:{lat:46.5311,lon:-87.5483,elev:1411},
+  KMRX:{lat:36.1686,lon:-83.4017,elev:1353},KMSX:{lat:47.0411,lon:-113.9861,elev:7855},
+  KMTX:{lat:41.2628,lon:-112.4478,elev:6493},KMUX:{lat:37.1553,lon:-121.8983,elev:3465},
+  KMVX:{lat:47.5278,lon:-97.3253,elev:986},KMXX:{lat:32.5367,lon:-85.7897,elev:400},
+  KNKX:{lat:32.9189,lon:-117.0419,elev:955},KNQA:{lat:35.3447,lon:-89.8733,elev:282},
+  KOAX:{lat:41.3203,lon:-96.3667,elev:1148},KOHX:{lat:36.2472,lon:-86.5625,elev:579},
+  KOKX:{lat:40.8656,lon:-72.8639,elev:85},KOTX:{lat:47.6803,lon:-117.6258,elev:2384},
+  KPAH:{lat:37.0683,lon:-88.7719,elev:392},KPBZ:{lat:40.5317,lon:-80.2178,elev:1185},
+  KPDT:{lat:45.6906,lon:-118.8528,elev:1515},KPOE:{lat:31.1556,lon:-92.9758,elev:408},
+  KPUX:{lat:38.4595,lon:-104.1814,elev:5249},KRAX:{lat:35.6656,lon:-78.4897,elev:348},
+  KRGX:{lat:39.7542,lon:-119.4611,elev:8299},KRIW:{lat:43.0661,lon:-108.4772,elev:5568},
+  KRLX:{lat:38.3111,lon:-81.7228,elev:1080},KRMX:{lat:43.4678,lon:-75.4578,elev:1513},
+  KSFX:{lat:43.1056,lon:-112.6861,elev:4474},KSGF:{lat:37.2353,lon:-93.4006,elev:1278},
+  KSHV:{lat:32.4508,lon:-93.8411,elev:273},KSJT:{lat:31.3714,lon:-100.4922,elev:1890},
+  KSOX:{lat:33.8175,lon:-117.6361,elev:3027},KSRX:{lat:35.2908,lon:-94.3619,elev:638},
+  KTBW:{lat:27.7056,lon:-82.4017,elev:41},KTFX:{lat:47.4597,lon:-111.3856,elev:3714},
+  KTLH:{lat:30.3975,lon:-84.3289,elev:63},KTLX:{lat:35.3331,lon:-97.2778,elev:1213},
+  KTWX:{lat:38.9969,lon:-96.2325,elev:1367},KTYX:{lat:43.7558,lon:-75.6800,elev:1846},
+  KUDX:{lat:44.1250,lon:-102.8297,elev:3016},KUEX:{lat:40.3211,lon:-98.4417,elev:1976},
+  KVAX:{lat:30.8903,lon:-83.0019,elev:178},KVBX:{lat:34.8381,lon:-120.3978,elev:1233},
+  KVNX:{lat:36.7408,lon:-98.1278,elev:1210},KVTX:{lat:34.4117,lon:-119.1797,elev:3005},
+  KVWX:{lat:38.2603,lon:-87.7247,elev:407},KYUX:{lat:32.4953,lon:-114.6561,elev:174},
+};
+
+// ── Beam geometry calculator ──────────────────────────────────────────────────
+function getBeamGeometry(propLat, propLon, radarId) {
+  const site = WSR88D_SITES[radarId];
+  if (!site) return null;
+
+  const R = 3958.8; // Earth radius miles
+  const dLat = ((site.lat - propLat) * Math.PI) / 180;
+  const dLon = ((site.lon - propLon) * Math.PI) / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(propLat*Math.PI/180)*Math.cos(site.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+  const distMi = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distFt = distMi * 5280;
+
+  const Re = 20902000; // Effective Earth radius ft (4/3 refraction)
+  const elev = site.elev; // ft
+
+  // Beam center at 0.5° elevation
+  const thetaCenter = 0.5 * Math.PI / 180;
+  const beamCenter = Math.round(Math.sqrt(distFt**2 + Re**2 + 2*distFt*Re*Math.sin(thetaCenter)) - Re + elev);
+
+  // Beam bottom at 0° (half beamwidth below center)
+  const thetaBottom = 0 * Math.PI / 180;
+  const beamBottom = Math.round(Math.sqrt(distFt**2 + Re**2 + 2*distFt*Re*Math.sin(thetaBottom)) - Re + elev);
+
+  // Beam width at distance (1° beamwidth)
+  const beamWidth = Math.round(2 * distFt * Math.tan(0.5 * Math.PI / 180));
+
+  // Reliability
+  let reliability, color;
+  if (beamCenter < 15000) { reliability = "reliable"; color = "#4caf50"; }
+  else if (beamCenter < 25000) { reliability = "marginal"; color = "#ffb04d"; }
+  else { reliability = "questionable"; color = "#ff6b6b"; }
+
+  return {
+    radarId,
+    distMi: distMi.toFixed(1),
+    beamCenter: beamCenter.toLocaleString(),
+    beamBottom: beamBottom.toLocaleString(),
+    beamWidth: beamWidth.toLocaleString(),
+    reliability,
+    color,
+  };
+}
 const PAGE_W = 794;
 const PAGE_H = 1123;
 
@@ -1417,7 +1533,7 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
               {row.size || "N/A"}
               {row.nexradCorroboration && (
                 <div style={{ fontSize: 10, fontWeight: 400, marginTop: 3, color: row.nexradCorroboration.corroborated ? "#4caf50" : "#aaa" }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{width:10,height:10,marginRight:3,verticalAlign:'middle',display:'inline-block'}}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{width:10,height:10,marginRight:3,verticalAlign:'middle',display:'inline-block'}}>
                     <path d="M1 11 A9 9 0 0 1 19 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     <path d="M3.5 11 A6.5 6.5 0 0 1 16.5 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     <path d="M6 11 A4 4 0 0 1 14 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -1428,6 +1544,20 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
                   {` NEXRAD (WSR-88D) ${row.nexradCorroboration.maxSizeIn}" aloft`}
                   {row.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (independent radar detection)"}
                   {row.nexradCorroboration.radar ? ` · ${row.nexradCorroboration.radar}` : ""}
+                  {(() => {
+                    const geo = row.nexradCorroboration.radar ? getBeamGeometry(
+                      parseFloat(row.nexradCorroboration.lat || 0),
+                      parseFloat(row.nexradCorroboration.lon || 0),
+                      row.nexradCorroboration.radar
+                    ) : null;
+                    if (!geo) return null;
+                    return (
+                      <div style={{ marginTop: 2, color: geo.color }}>
+                        <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: geo.color, marginRight: 4, verticalAlign: 'middle' }} />
+                        {`${geo.radarId} · ${geo.distMi} mi · beam bottom ${geo.beamBottom} ft · beam center ${geo.beamCenter} ft · beam width ${geo.beamWidth} ft (${geo.reliability})`}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
