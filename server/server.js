@@ -445,6 +445,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
       );
       const zohoData = await zohoRes.json();
       const records = zohoData?.data || [];
+      if (records.length > 0) console.log('NEXRAD sample record:', JSON.stringify(records[0]));
       allRecords.push(...records);
       if (records.length < pageSize) {
         hasMore = false;
