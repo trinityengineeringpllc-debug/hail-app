@@ -427,7 +427,8 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
           <div style={{ color: T.muted2, fontSize: 8, marginTop: 4, fontFamily: '"IBM Plex Mono", monospace', lineHeight: 1.6, textAlign:"right" }}>
             HIGH: &lt;5 mi · 5+ stations{"\n"}
             MODERATE: 5–20 mi · 3+ stations{"\n"}
-            LOW: &gt;20 mi or &lt;3 stations
+            LOW: &gt;20 mi or &lt;3 stations{"\n"}
+            <span style={{ opacity: 0.7, fontStyle: "italic" }}>Tiers are qualitative indicators based on IDW validation literature (Shepard, 1968; Dirks et al., 1998), not frequentist probability statements.</span>
           </div>
           {r.nexradBoost && (
             <div style={{
