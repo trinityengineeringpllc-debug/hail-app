@@ -93,7 +93,7 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
       applied: true,
       radar: nexradHit.radar,
       maxSizeIn: nexradHit.maxSizeIn,
-      note: `NEXRAD corroboration: WSR-88D${nexradHit.radar ? ` (${nexradHit.radar})` : ""} independently detected hail aloft on date of loss — confidence elevated.`,
+      note: `NEXRAD corroboration: WSR-88D${nexradHit.radar ? ` (${nexradHit.radar})` : ""} independently detected ${nexradHit.maxSizeIn}" hail aloft on date of loss${nexradHit.probHail != null ? ` · POH: ${nexradHit.probHail}%` : ""}${nexradHit.probSevere != null ? ` · POSH: ${nexradHit.probSevere}%` : ""} — confidence elevated.`,
     };
   }
 
