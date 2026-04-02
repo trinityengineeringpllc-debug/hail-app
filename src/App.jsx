@@ -2060,7 +2060,7 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
                     <div style={{ marginTop: 2, color: "#7ea2df", fontSize: 9 }}>
                       {row.nexradCorroboration.probHail != null && `POH: ${row.nexradCorroboration.probHail}%`}
                       {row.nexradCorroboration.probHail != null && row.nexradCorroboration.probSevere != null && " · "}
-                      {row.nexradCorroboration.probSevere != null && `POSH: ${row.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface)`}
+                      {row.nexradCorroboration.probSevere != null && `POSH: ${row.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface · per FMH-11 Part C §2.18, accounts for reflectivity & freezing level height)`}
                     </div>
                   )}
                   {(() => {
@@ -3167,7 +3167,7 @@ if (nexradCorroboratedCount > 0) {
         {(() => {
           const labels = {
             "https://www.ncdc.noaa.gov/stormevents/": "NOAA Storm Events Database",
-            "https://www.visualcrossing.com": "Visual Crossing / ASOS Station Network",
+            "https://www.visualcrossing.com": "Visual Crossing / ASOS Station Network — federally maintained ASOS observations with range, temporal consistency, and neighbor comparison QC",
             "https://mesonet.agron.iastate.edu/lsr/": "IEM Local Storm Reports",
             "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/": "NEXRAD Level-III Hail Detection (NOAA SWDI)",
             "https://www.ofcm.gov/publications/fmh/FMH11/FMH11C.pdf": "FMH-11 Part C §2.18 — WSR-88D Hail Index Algorithm (reflectivity thresholds, HDA logic)",
