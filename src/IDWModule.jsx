@@ -461,7 +461,9 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
         </div>
       </div>
 
-      <MetricCard
+      {/* Metric cards */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <MetricCard
           label="Hail Size Aloft (Radar)"
           value={r.hailSizeIn}
           unit="in"
@@ -476,10 +478,10 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
           />
         )}
         <MetricCard
-        label="Hail Probability"
-        value={r.nexradBoost ? r.nexradBoost.probSevere ?? r.hailProbability : r.hailProbability}
-        unit="%"
-        sublabel={r.nexradBoost ? "NEXRAD POSH (radar-derived)" : "interpolated"}
+          label="Hail Probability"
+          value={r.nexradBoost ? r.nexradBoost.probSevere ?? r.hailProbability : r.hailProbability}
+          unit="%"
+          sublabel={r.nexradBoost ? "NEXRAD POSH (radar-derived)" : "interpolated"}
         />
         <MetricCard
           label="Wind Speed"
