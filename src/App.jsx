@@ -645,7 +645,6 @@ return (
   );
 }
 const PAGE_W = 794;
-const PAGE_W = 794;
 const PAGE_H = 1123;
 
 const theme = {
