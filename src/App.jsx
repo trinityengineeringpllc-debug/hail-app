@@ -342,7 +342,7 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
       </div>
 
       <div style={{ marginTop:10, color:theme.muted2, fontSize:9, fontFamily:'"IBM Plex Mono", monospace', letterSpacing:"0.08em" }}>
-        NEXRAD hits represent maximum detected hail size aloft per location · Circle size proportional to magnitude · WSR-88D sites that detected events shown
+        NEXRAD hits shown within 0.5° radius (~35 mi) of subject property · Maximum detected hail size aloft per location · WSR-88D sites that detected events shown
       </div>
     </PdfPageShell>
   );
@@ -1926,7 +1926,7 @@ const items = [
       }}
     >
       {items.map((item) => (
-        <Panel key={item.label} style={{ padding: "14px 14px 16px 14px" }}>
+        <Panel key={item.label} style={{ padding: "10px 10px 12px 10px" }}>
           <div
             style={{
               color: theme.muted2,
