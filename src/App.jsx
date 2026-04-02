@@ -567,10 +567,8 @@ return (
         </div>
       </div>
 
-      {/* Map + panel row */}
-      <div style={{ display:"flex", gap:10 }}>
-        {/* Map */}
-        <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, overflow:"hidden", flexShrink:0 }}>
+      {/* Map */}
+      <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, overflow:"hidden", marginBottom:10 }}>
           {mapStatus === "loading" && (
             <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:"#4d6797", fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
               Loading map...
@@ -584,8 +582,8 @@ return (
           <svg ref={svgRef} width={MAP_W} height={MAP_H} style={{ display: mapStatus==="ready" ? "block" : "none" }} />
         </div>
 
-        {/* Hit list panel */}
-        <div style={{ flex:1, background:"#020609", border:"1px solid #17325f", borderRadius:8, padding:"10px 12px", overflowY:"auto", maxHeight:MAP_H, fontFamily:'"IBM Plex Mono", monospace', fontSize:9 }}>
+        {/* Hit list panel — below map */}
+        <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, padding:"10px 12px", fontFamily:'"IBM Plex Mono", monospace', fontSize:9 }}>
           {(() => {
             // Attach distance to each hit
             const hitsWithDist = classifiedHits.map(h => {
@@ -641,7 +639,6 @@ return (
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }
