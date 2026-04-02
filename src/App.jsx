@@ -278,7 +278,6 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
               .attr("fill", isMain ? "rgba(118,168,255,0.8)" : "rgba(118,168,255,0.55)")
               .attr("font-size", isMain ? 8 : 7)
               .attr("font-family",'"IBM Plex Mono", monospace').text(`${miles} mi`);
-              .text("25 mi");
           }
 
           // Property pin
