@@ -643,6 +643,8 @@ return (
       </div>
     </div>
   );
+}
+const PAGE_W = 794;
 const PAGE_W = 794;
 const PAGE_H = 1123;
 
