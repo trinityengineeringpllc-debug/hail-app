@@ -2056,6 +2056,13 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
                   {` NEXRAD (WSR-88D) ${row.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)`}
                   {row.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (independent radar detection)"}
                   {row.nexradCorroboration.radar ? ` · ${row.nexradCorroboration.radar}` : ""}
+                  {(row.nexradCorroboration.probHail != null || row.nexradCorroboration.probSevere != null) && (
+                    <div style={{ marginTop: 2, color: "#7ea2df", fontSize: 9 }}>
+                      {row.nexradCorroboration.probHail != null && `POH: ${row.nexradCorroboration.probHail}%`}
+                      {row.nexradCorroboration.probHail != null && row.nexradCorroboration.probSevere != null && " · "}
+                      {row.nexradCorroboration.probSevere != null && `POSH: ${row.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface)`}
+                    </div>
+                  )}
                   {(() => {
                     const geo = row.nexradCorroboration.radar ? getBeamGeometry(
                       propLat,
