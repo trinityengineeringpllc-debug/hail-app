@@ -64,7 +64,7 @@ export function meltingChartEstimate(hailSizeAloftIn, freezeLevelFt) {
   return parseFloat(Math.max(surface, 0).toFixed(2));
 }
 
-export function runIDW(targetLat, targetLon, stations, nexradHit = null, power = 2) {
+export function runIDW(targetLat, targetLon, stations, nexradHit = null, power = 2, freezeLevelFt = null) {
   if (!stations || stations.length === 0) return null;
 
   const withDistances = stations
@@ -132,7 +132,11 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
       distanceMiles:   parseFloat(s.distanceMiles.toFixed(2)),
       contributionPct: parseFloat(((s.weight / totalWeight) * 100).toFixed(1)),
     })),
+    surfaceHailSizeIn: nexradHit ? meltingChartEstimate(parseFloat(nexradHit.maxSizeIn), freezeLevelFt) : null,
+    freezeLevelFt: freezeLevelFt,
     computedAt: new Date().toISOString(),
+  };
+}
   };
 }
 
