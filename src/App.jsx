@@ -271,13 +271,14 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
             const ringRadius = Math.abs(py - offsetCoords[1]);
             svg.append("circle").attr("cx",px).attr("cy",py).attr("r",ringRadius)
               .attr("fill","none")
-              .attr("stroke", isMain ? "rgba(118,168,255,0.7)" : "rgba(118,168,255,0.4)")
-              .attr("stroke-width", isMain ? 1.5 : 1)
-              .attr("stroke-dasharray", isMain ? "5,3" : "3,4");
+              .attr("stroke","rgba(118,168,255,0.5)")
+              .attr("stroke-width",1.2)
+              .attr("stroke-dasharray","5,3");
             svg.append("text").attr("x",px+ringRadius+4).attr("y",py+3)
-              .attr("fill", isMain ? "rgba(118,168,255,0.8)" : "rgba(118,168,255,0.55)")
-              .attr("font-size", isMain ? 8 : 7)
-              .attr("font-family",'"IBM Plex Mono", monospace').text(`${miles} mi`);
+              .attr("fill","rgba(118,168,255,0.7)")
+              .attr("font-size",8)
+              .attr("font-family",'"IBM Plex Mono", monospace')
+              .text("25 mi");
           }
 
           // Property pin
