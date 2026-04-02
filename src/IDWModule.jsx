@@ -436,7 +436,7 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
               fontSize: 9,
               fontFamily: '"IBM Plex Mono", monospace',
               lineHeight: 1.6,
-              maxWidth: 220,
+              maxWidth: 400,
               textAlign: "right",
             }}>
               ▲ {r.nexradBoost.note}
