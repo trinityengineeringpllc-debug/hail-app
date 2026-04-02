@@ -2684,7 +2684,12 @@ const directHailEvents = stormEventsData.hailEvents
     date: e.date,
     type: e.type,
 location: `${e.county || stormEventsData?.county}, ${e.state || stormEventsData?.state}`,
-description: e.narrative ? e.narrative.slice(0, 150) : e.type,    damage: e.propertyDamage || "N/A",
+description: (() => {
+  const windStr = (e.magnitude && parseFloat(e.magnitude) > 0) ? 
+    `${Math.round(parseFloat(e.magnitude))} MPH ${({'EG':'(est. gust)','ES':'(est. sustained)','MG':'(meas. gust)','MS':'(meas. sustained)'}[e.magnitudeType] || '')} — ` : '';
+  return windStr + (e.narrative ? e.narrative.slice(0, 150) : e.type);
+})(),
+damage: e.propertyDamage || "N/A",    
   }));
   const nexradHitCount = Object.keys(nexradByDate).length;
   const nexradCorroboratedCount = parsed.hailEvents.filter(e => e.nexradCorroboration !== null).length;
