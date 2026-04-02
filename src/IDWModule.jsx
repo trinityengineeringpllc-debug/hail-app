@@ -50,6 +50,19 @@ function computeConfidence(nearestMi, stationCount, hailValues) {
 
   return { confidence: parseFloat(confidence.toFixed(3)), confidenceLabel };
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// NCAR HAIL MELTING CHART — Knight (1981)
+// Estimates surface hail size from radar-detected aloft size + freezing level.
+// Formula: surfaceSize = aloftSize * exp(-k * warmLayerFt)
+// where warmLayerFt is the depth of air below the freezing level (proxy: freezeLevelFt)
+// k = 0.000055 (empirical constant from Knight 1981 regression)
+// ─────────────────────────────────────────────────────────────────────────────
+export function meltingChartEstimate(hailSizeAloftIn, freezeLevelFt) {
+  if (!hailSizeAloftIn || !freezeLevelFt) return null;
+  const k = 0.000055;
+  const surface = hailSizeAloftIn * Math.exp(-k * freezeLevelFt);
+  return parseFloat(Math.max(surface, 0).toFixed(2));
+}
 
 export function runIDW(targetLat, targetLon, stations, nexradHit = null, power = 2) {
   if (!stations || stations.length === 0) return null;
@@ -448,14 +461,20 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
         </div>
       </div>
 
-      {/* Metric cards */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <MetricCard
-        label="Est. Hail Size"
-        value={r.hailSizeIn}
-        unit="in"
-        sublabel="at property location"
+      <MetricCard
+          label="Hail Size Aloft (Radar)"
+          value={r.hailSizeIn}
+          unit="in"
+          sublabel="NEXRAD HDA — not ground level"
         />
+        {r.surfaceHailSizeIn != null && (
+          <MetricCard
+            label="Est. Surface Hail Size"
+            value={r.surfaceHailSizeIn}
+            unit="in"
+            sublabel={`melting chart · FL ${r.freezeLevelFt?.toLocaleString()} ft`}
+          />
+        )}
         <MetricCard
         label="Hail Probability"
         value={r.nexradBoost ? r.nexradBoost.probSevere ?? r.hailProbability : r.hailProbability}
