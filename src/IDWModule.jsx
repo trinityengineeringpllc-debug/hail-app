@@ -93,7 +93,7 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
       applied: true,
       radar: nexradHit.radar,
       maxSizeIn: nexradHit.maxSizeIn,
-      note: `Confidence boosted +12% — NEXRAD (WSR-88D) detected ${nexradHit.maxSizeIn}" hail aloft on date of loss${nexradHit.radar ? ` via ${nexradHit.radar}` : ""}.`,
+      note: `NEXRAD corroboration: WSR-88D${nexradHit.radar ? ` (${nexradHit.radar})` : ""} independently detected hail aloft on date of loss — confidence elevated.`,
     };
   }
 
@@ -102,7 +102,7 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
     hailProbability:    parseFloat(hailProb.toFixed(1)),
     windSpeedMph:       parseFloat(windSpeed.toFixed(1)),
     windGustMph:        parseFloat(windGust.toFixed(1)),
-    method:             "Inverse Distance Weighting (IDW, power=2)",
+    method:             "IDW Spatial Interpolation (Shepard, 1968)",
     methodVersion:      "1.0.0",
     stationCount:       sorted.length,
     nearestStationMiles: parseFloat(nearestMi.toFixed(2)),
@@ -340,7 +340,7 @@ function DisclaimerBlock({ result, propertyAddress, claimDate }) {
         Storm conditions for{" "}
         <strong style={{ color: T.text }}>{propertyAddress}</strong> on{" "}
         <strong style={{ color: T.text }}>{claimDate}</strong> are mathematical
-        estimates derived by Inverse Distance Weighting (IDW, power=2) across{" "}
+        estimates derived by IDW Spatial Interpolation (Shepard, 1968) across{" "}
         <strong style={{ color: T.text }}>{result.stationCount}</strong> surrounding
         weather stations. Nearest station:{" "}
         <strong style={{ color: T.text }}>
@@ -348,7 +348,7 @@ function DisclaimerBlock({ result, propertyAddress, claimDate }) {
         </strong>
         . Confidence:{" "}
         <strong style={{ color: T.text }}>{result.confidenceLabel}</strong> (
-        {(result.confidence * 100).toFixed(0)}%). Algorithm v{result.methodVersion}.
+        {(result.confidence * 100).toFixed(0)}%). IDW Spatial Interpolation v{result.methodVersion}. IDW is a standard peer-reviewed spatial interpolation method applied throughout operational meteorology and atmospheric science (Shepard, 1968).
       </p>
     </div>
   );
@@ -423,6 +423,11 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
           <ConfidenceBadge label={r.confidenceLabel} />
           <div style={{ color: T.muted2, fontSize: 9, marginTop: 5, fontFamily: '"IBM Plex Mono", monospace' }}>
             {r.stationCount} stations · nearest {r.nearestStationMiles} mi
+          </div>
+          <div style={{ color: T.muted2, fontSize: 8, marginTop: 4, fontFamily: '"IBM Plex Mono", monospace', lineHeight: 1.6, textAlign:"right" }}>
+            HIGH: &lt;5 mi · 5+ stations{"\n"}
+            MODERATE: 5–20 mi · 3+ stations{"\n"}
+            LOW: &gt;20 mi or &lt;3 stations
           </div>
           {r.nexradBoost && (
             <div style={{
