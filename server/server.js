@@ -533,6 +533,91 @@ app.get("/api/spcmcd", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ── Freezing Level via University of Wyoming Radiosonde Archive ──
+const UPPER_AIR_STATIONS = [
+  { id: "72317", name: "Little Rock, AR",      lat: 34.74, lon: -92.23 },
+  { id: "72247", name: "Jackson, MS",           lat: 32.32, lon: -90.08 },
+  { id: "72274", name: "Peachtree City, GA",    lat: 33.35, lon: -84.57 },
+  { id: "72305", name: "Newport/Morehead, NC",  lat: 34.78, lon: -76.88 },
+  { id: "72327", name: "Nashville, TN",         lat: 36.25, lon: -86.57 },
+  { id: "72363", name: "Springfield, MO",       lat: 37.23, lon: -93.38 },
+  { id: "72357", name: "Norman, OK",            lat: 35.18, lon: -97.44 },
+  { id: "72240", name: "Lake Charles, LA",      lat: 30.12, lon: -93.22 },
+  { id: "72261", name: "Tallahassee, FL",       lat: 30.38, lon: -84.37 },
+  { id: "72250", name: "Tampa, FL",             lat: 27.96, lon: -82.53 },
+  { id: "72403", name: "Greensboro, NC",        lat: 36.08, lon: -79.95 },
+  { id: "72451", name: "Dayton, OH",            lat: 39.90, lon: -84.22 },
+  { id: "72440", name: "Nashville (alt), TN",   lat: 36.12, lon: -86.68 },
+  { id: "72469", name: "Pittsburgh, PA",        lat: 40.53, lon: -80.23 },
+  { id: "72476", name: "Albany, NY",            lat: 42.75, lon: -73.80 },
+];
+
+function nearestStation(lat, lon) {
+  let best = null, bestDist = Infinity;
+  for (const s of UPPER_AIR_STATIONS) {
+    const d = Math.sqrt((s.lat - lat) ** 2 + (s.lon - lon) ** 2);
+    if (d < bestDist) { bestDist = d; best = s; }
+  }
+  return best;
+}
+
+function parseFreezeLevel(html) {
+  // Extract the <pre> data block
+  const match = html.match(/<pre>([\s\S]*?)<\/pre>/i);
+  if (!match) return null;
+  const lines = match[1].split("\n");
+  // Find data lines: pressure height temp ...
+  // Table columns: PRES HGHT TEMP DWPT ...
+  // Find where temp crosses 0°C (positive below, negative above)
+  let prevHeight = null, prevTemp = null;
+  for (const line of lines) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 3) continue;
+    const pres = parseFloat(parts[0]);
+    const hght = parseFloat(parts[1]);
+    const temp = parseFloat(parts[2]);
+    if (isNaN(pres) || isNaN(hght) || isNaN(temp)) continue;
+    if (prevTemp !== null && prevTemp >= 0 && temp < 0) {
+      // Linear interpolation between levels
+      const fraction = prevTemp / (prevTemp - temp);
+      const freezeM = prevHeight + fraction * (hght - prevHeight);
+      return Math.round(freezeM * 3.28084); // meters → feet
+    }
+    prevHeight = hght;
+    prevTemp = temp;
+  }
+  return null;
+}
+
+app.get("/api/freezinglevel", async (req, res) => {
+  const { lat, lon, date } = req.query;
+  if (!lat || !lon || !date) return res.status(400).json({ error: "lat, lon, date required" });
+
+  const station = nearestStation(parseFloat(lat), parseFloat(lon));
+  const d = new Date(date + "T12:00:00Z"); // 12Z sounding
+  const year  = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day   = String(d.getUTCDate()).padStart(2, "0");
+  const hour  = "12";
+
+  const url = `https://weather.uwyo.edu/cgi-bin/sounding?region=naconf&TYPE=TEXT%3ALIST&YEAR=${year}&MONTH=${month}&FROM=${day}${hour}&TO=${day}${hour}&STNM=${station.id}`;
+
+  try {
+    const response = await fetch(url);
+    const html = await response.text();
+    const freezeLevelFt = parseFreezeLevel(html);
+    if (!freezeLevelFt) return res.status(404).json({ error: "Freezing level not found in sounding" });
+    res.json({
+      freezeLevelFt,
+      station: station.name,
+      stationId: station.id,
+      soundingTime: `${year}-${month}-${day} 12Z`,
+      source: "University of Wyoming Radiosonde Archive",
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
