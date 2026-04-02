@@ -451,10 +451,11 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
       {/* Metric cards */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <MetricCard
-          label="Est. Hail Size"
-          value={r.hailSizeIn}
-          unit="in"
-          sublabel="at property location"
+        label="Est. Hail Size"
+        value={r.hailSizeIn}
+        unit="in"
+        sublabel="at property location"
+        />
         <MetricCard
         label="Hail Probability"
         value={r.nexradBoost ? r.nexradBoost.probSevere ?? r.hailProbability : r.hailProbability}
