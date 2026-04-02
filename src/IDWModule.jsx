@@ -137,8 +137,6 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
     computedAt: new Date().toISOString(),
   };
 }
-  };
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DARK THEME TOKENS (matches App.jsx exactly)
