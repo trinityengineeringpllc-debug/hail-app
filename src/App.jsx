@@ -347,7 +347,7 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
     </PdfPageShell>
   );
 }
-// ── DOL NEXRAD Map (tight zoom, date-filtered) ────────────────────────────────
+// ── DOL NEXRAD Map (recent hail history, date-colored) ───────────────────────
 function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
@@ -355,19 +355,51 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
   const propLat = parseFloat(data?.location?.lat || 0);
   const propLon = parseFloat(data?.location?.lon || 0);
   const MAP_W = 700;
-  const MAP_H = 320;
+  const MAP_H = 380;
 
-  // Filter hits to DOL date only
-  const dolHits = nexradHits.filter(h => {
-    if (!dateOfLoss || !h.date) return false;
-    const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const formatted = `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
-    return h.date === formatted;
+  // Parse DOL
+  const [dolYear, dolMonth, dolDay] = dateOfLoss ? dateOfLoss.split("-").map(Number) : [0,0,0];
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dolFormatted = dateOfLoss ? `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}` : null;
+
+  // Date range: 1 year before DOL to today
+  const dolDateObj = dateOfLoss ? new Date(dolYear, dolMonth-1, dolDay) : null;
+  const oneYearBefore = dolDateObj ? new Date(dolDateObj.getTime() - 365*24*60*60*1000) : null;
+  const today = new Date();
+
+  // Filter and classify hits
+  const classifiedHits = nexradHits.filter(h => {
+    if (!h.date) return false;
+    const parts = h.date.split("-");
+    if (parts.length !== 3) return false;
+    const monthIdx = months.indexOf(parts[1]);
+    if (monthIdx === -1) return false;
+    const hDate = new Date(parseInt(parts[2]), monthIdx, parseInt(parts[0]));
+    return hDate >= oneYearBefore && hDate <= today;
+  }).map(h => {
+    const parts = h.date.split("-");
+    const monthIdx = months.indexOf(parts[1]);
+    const hDate = new Date(parseInt(parts[2]), monthIdx, parseInt(parts[0]));
+    let category;
+    if (h.date === dolFormatted) category = "dol";
+    else if (hDate < dolDateObj) category = "before";
+    else category = "after";
+    const labelDate = `${parts[2]}.${String(monthIdx+1).padStart(2,"0")}.${parts[0].padStart(2,"0")}`;
+    return { ...h, category, labelDate, hDate };
   });
 
+  const colorMap = {
+    dol:    { fill: "rgba(0,220,255,0.65)", stroke: "#00dcff", text: "#00dcff" },
+    before: { fill: "rgba(255,176,77,0.65)", stroke: "#ffb04d", text: "#ffb04d" },
+    after:  { fill: "rgba(255,100,80,0.65)", stroke: "#ff6450", text: "#ff6450" },
+  };
+
+  const dateRangeLabel = oneYearBefore && dolDateObj
+    ? `${oneYearBefore.getFullYear()}.${String(oneYearBefore.getMonth()+1).padStart(2,"0")}.${String(oneYearBefore.getDate()).padStart(2,"0")} — ${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,"0")}.${String(today.getDate()).padStart(2,"0")}`
+    : "";
+
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !dateOfLoss) return;
     let cancelled = false;
 
     async function renderMap() {
@@ -383,17 +415,15 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
           features: counties.features.filter(f => String(f.id).padStart(5,'0').slice(0,2) === fips)
         } : { type: "FeatureCollection", features: [] };
 
-        // Tight bbox around property — ~0.6° radius (~42 miles)
-        const pad = 0.6;
-        const bbox = [[propLon - pad, propLat - pad], [propLon + pad, propLat + pad]];
+        const pad = 0.75;
         const bboxFeature = {
           type: "Feature",
           geometry: {
             type: "Polygon",
             coordinates: [[
-              [bbox[0][0], bbox[0][1]], [bbox[1][0], bbox[0][1]],
-              [bbox[1][0], bbox[1][1]], [bbox[0][0], bbox[1][1]],
-              [bbox[0][0], bbox[0][1]]
+              [propLon-pad, propLat-pad], [propLon+pad, propLat-pad],
+              [propLon+pad, propLat+pad], [propLon-pad, propLat+pad],
+              [propLon-pad, propLat-pad]
             ]]
           }
         };
@@ -406,11 +436,11 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
 
         // Defs
         const defs = svg.append("defs");
-        const bf = defs.append("filter").attr("id","dol-blue-glow").attr("x","-100%").attr("y","-100%").attr("width","300%").attr("height","300%");
-        bf.append("feGaussianBlur").attr("stdDeviation","4").attr("result","blur");
-        const m = bf.append("feMerge");
-        m.append("feMergeNode").attr("in","blur");
-        m.append("feMergeNode").attr("in","SourceGraphic");
+        const wf = defs.append("filter").attr("id","dol-white-glow").attr("x","-100%").attr("y","-100%").attr("width","300%").attr("height","300%");
+        wf.append("feGaussianBlur").attr("stdDeviation","4").attr("result","blur");
+        const mw = wf.append("feMerge");
+        mw.append("feMergeNode").attr("in","blur");
+        mw.append("feMergeNode").attr("in","SourceGraphic");
 
         // Background
         svg.append("rect").attr("width",MAP_W).attr("height",MAP_H).attr("fill","#020609");
@@ -420,39 +450,52 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
           .attr("d", path).attr("fill","#040c18")
           .attr("stroke","rgba(23,50,95,0.9)").attr("stroke-width",0.6);
 
-        // 25-mile radius ring
+        // Distance rings
         const propCoords = projection([propLon, propLat]);
         if (propCoords) {
           const [px, py] = propCoords;
-          const offsetCoords = projection([propLon, propLat + (25/69.0)]);
-          if (offsetCoords) {
+          [5, 10, 15, 25].forEach(miles => {
+            const offsetCoords = projection([propLon, propLat + (miles/69.0)]);
+            if (!offsetCoords) return;
             const ringRadius = Math.abs(py - offsetCoords[1]);
+            const isMain = miles === 25;
             svg.append("circle").attr("cx",px).attr("cy",py).attr("r",ringRadius)
-              .attr("fill","none").attr("stroke","rgba(118,168,255,0.2)")
-              .attr("stroke-width",1).attr("stroke-dasharray","4,4");
+              .attr("fill","none")
+              .attr("stroke", isMain ? "rgba(118,168,255,0.25)" : "rgba(118,168,255,0.12)")
+              .attr("stroke-width", isMain ? 1 : 0.6)
+              .attr("stroke-dasharray", isMain ? "4,4" : "2,4");
             svg.append("text").attr("x",px+ringRadius+3).attr("y",py)
-              .attr("fill","rgba(118,168,255,0.45)").attr("font-size",7)
-              .attr("font-family",'"IBM Plex Mono", monospace').text("25 mi");
-          }
+              .attr("fill","rgba(118,168,255,0.35)").attr("font-size",6)
+              .attr("font-family",'"IBM Plex Mono", monospace').text(`${miles} mi`);
+          });
         }
 
-        // DOL NEXRAD hits
-        dolHits.forEach(hit => {
+        // NEXRAD hits — sorted so DOL renders on top
+        const sortOrder = { before: 0, after: 1, dol: 2 };
+        const sorted = [...classifiedHits].sort((a,b) => sortOrder[a.category] - sortOrder[b.category]);
+
+        sorted.forEach(hit => {
           const coords = projection([parseFloat(hit.lon), parseFloat(hit.lat)]);
           if (!coords) return;
           const [x, y] = coords;
-          const r = Math.max(4, Math.min(12, parseFloat(hit.maxSizeIn) * 5));
-          svg.append("circle").attr("cx",x).attr("cy",y).attr("r",r+5)
-            .attr("fill","rgba(76,175,80,0.1)").attr("stroke","none");
+          const r = Math.max(4, Math.min(10, parseFloat(hit.maxSizeIn) * 4));
+          const c = colorMap[hit.category];
+          svg.append("circle").attr("cx",x).attr("cy",y).attr("r",r+4)
+            .attr("fill",`${c.fill.replace("0.65","0.1")}`).attr("stroke","none");
           svg.append("circle").attr("cx",x).attr("cy",y).attr("r",r)
-            .attr("fill","rgba(76,175,80,0.6)").attr("stroke","#4caf50").attr("stroke-width",1);
+            .attr("fill",c.fill).attr("stroke",c.stroke).attr("stroke-width",1);
+          // Date label
           svg.append("text").attr("x",x).attr("y",y-r-3)
-            .attr("fill","#4caf50").attr("font-size",7).attr("text-anchor","middle")
+            .attr("fill",c.text).attr("font-size",6).attr("text-anchor","middle")
+            .attr("font-family",'"IBM Plex Mono", monospace').text(hit.labelDate);
+          // Size label below
+          svg.append("text").attr("x",x).attr("y",y+r+8)
+            .attr("fill",c.text).attr("font-size",6).attr("text-anchor","middle")
             .attr("font-family",'"IBM Plex Mono", monospace').text(`${hit.maxSizeIn}"`);
         });
 
         // Radar towers
-        const radarsShown = [...new Set(dolHits.map(h => h.radar).filter(Boolean))];
+        const radarsShown = [...new Set(classifiedHits.map(h => h.radar).filter(Boolean))];
         radarsShown.forEach(radarId => {
           const site = WSR88D_SITES[radarId];
           if (!site) return;
@@ -468,14 +511,14 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
             .attr("font-family",'"IBM Plex Mono", monospace').text(radarId);
         });
 
-        // Property pin
+        // Property pin — white
         if (propCoords) {
           const [px, py] = propCoords;
           svg.append("circle").attr("cx",px).attr("cy",py).attr("r",18)
-            .attr("fill","rgba(118,168,255,0.1)").attr("stroke","rgba(118,168,255,0.25)").attr("stroke-width",1);
+            .attr("fill","rgba(255,255,255,0.08)").attr("stroke","rgba(255,255,255,0.2)").attr("stroke-width",1);
           svg.append("circle").attr("cx",px).attr("cy",py).attr("r",7)
-            .attr("fill","#76a8ff").attr("stroke","#ffffff").attr("stroke-width",2)
-            .attr("filter","url(#dol-blue-glow)");
+            .attr("fill","#ffffff").attr("stroke","rgba(255,255,255,0.5)").attr("stroke-width",2)
+            .attr("filter","url(#dol-white-glow)");
         }
 
         if (!cancelled) setMapStatus("ready");
@@ -487,22 +530,35 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
 
     renderMap();
     return () => { cancelled = true; };
-  }, [propLat, propLon, dateOfLoss, dolHits.length]);
+  }, [propLat, propLon, dateOfLoss, classifiedHits.length]);
 
   return (
     <div style={{ marginTop:16 }}>
-      <div style={{ color:"#4d6797", fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:8 }}>
-        NEXRAD Detections · {dateOfLoss} · {dolHits.length} hit{dolHits.length !== 1 ? "s" : ""} within 50mi
-      </div>
-      <div style={{ display:"flex", gap:12, alignItems:"center", fontFamily:'"IBM Plex Mono", monospace', fontSize:9, color:"#4d6797", marginBottom:8 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <div style={{ width:7, height:7, borderRadius:"50%", background:"#76a8ff", border:"1.5px solid #fff" }} />Property
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+        <div>
+          <div style={{ color:"#4d6797", fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:2 }}>
+            Recent Hail History · {dateRangeLabel}
+          </div>
+          <div style={{ color:"#7ea2df", fontSize:11, fontFamily:'"IBM Plex Mono", monospace' }}>
+            {classifiedHits.length} NEXRAD detection{classifiedHits.length !== 1 ? "s" : ""} in view
+          </div>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <div style={{ width:7, height:7, borderRadius:"50%", background:"rgba(76,175,80,0.6)", border:"1px solid #4caf50" }} />NEXRAD Hit (size labeled)
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <div style={{ width:0, height:0, borderLeft:"4px solid transparent", borderRight:"4px solid transparent", borderBottom:"8px solid #ffb04d" }} />WSR-88D Radar
+        <div style={{ display:"flex", gap:14, alignItems:"center", fontFamily:'"IBM Plex Mono", monospace', fontSize:9 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ffffff" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:"#ffffff" }} />Property
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:4, color:"#00dcff" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:"#00dcff" }} />Date of Loss
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ffb04d" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:"#ffb04d" }} />Prior History
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ff6450" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:"#ff6450" }} />Post-Loss
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ffb04d" }}>
+            <div style={{ width:0, height:0, borderLeft:"4px solid transparent", borderRight:"4px solid transparent", borderBottom:"8px solid #ffb04d" }} />WSR-88D
+          </div>
         </div>
       </div>
       <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, overflow:"hidden" }}>
@@ -518,9 +574,9 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
         )}
         <svg ref={svgRef} width={MAP_W} height={MAP_H} style={{ display: mapStatus==="ready" ? "block" : "none" }} />
       </div>
-      {dolHits.length === 0 && (
+      {classifiedHits.length === 0 && mapStatus === "ready" && (
         <div style={{ marginTop:8, color:"#4d6797", fontSize:10, fontFamily:'"IBM Plex Mono", monospace' }}>
-          No NEXRAD detections within 50mi on {dateOfLoss}
+          No NEXRAD detections within view for this period
         </div>
       )}
     </div>
