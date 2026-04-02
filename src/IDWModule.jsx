@@ -93,6 +93,8 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
       applied: true,
       radar: nexradHit.radar,
       maxSizeIn: nexradHit.maxSizeIn,
+      probHail: nexradHit.probHail ?? null,
+      probSevere: nexradHit.probSevere ?? null,
       note: `NEXRAD corroboration: WSR-88D${nexradHit.radar ? ` (${nexradHit.radar})` : ""} independently detected ${nexradHit.maxSizeIn}" hail aloft on date of loss${nexradHit.probHail != null ? ` · POH: ${nexradHit.probHail}%` : ""}${nexradHit.probSevere != null ? ` · POSH: ${nexradHit.probSevere}%` : ""} — confidence elevated.`,
     };
   }
@@ -453,12 +455,11 @@ export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) 
           value={r.hailSizeIn}
           unit="in"
           sublabel="at property location"
-        />
         <MetricCard
-          label="Hail Probability"
-          value={r.hailProbability}
-          unit="%"
-          sublabel="interpolated"
+        label="Hail Probability"
+        value={r.nexradBoost ? r.nexradBoost.probSevere ?? r.hailProbability : r.hailProbability}
+        unit="%"
+        sublabel={r.nexradBoost ? "NEXRAD POSH (radar-derived)" : "interpolated"}
         />
         <MetricCard
           label="Wind Speed"
