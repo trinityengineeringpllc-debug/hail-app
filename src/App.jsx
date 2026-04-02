@@ -2501,15 +2501,22 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes] = awa
             `${API}/api/spcmcd?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
             { credentials: "include", headers: authHeaders }
           )
+        : Promise.resolve(null),
+      dateOfLoss
+        ? fetch(
+            `${API}/api/freezinglevel?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
+            { credentials: "include", headers: authHeaders }
+          )
         : Promise.resolve(null),    ]);
   
-const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData] = await Promise.all([
+const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData, freezingLevelData] = await Promise.all([
       noaaRes.json(),
       lsrRes.json(),
       stationsRes ? stationsRes.json() : null,
       stormEventsRes.json(),
       nexradRes.json().catch((e) => { console.log('NEXRAD parse error:', e); return { hits: [] }; }),
       spcmcdRes ? spcmcdRes.json().catch(() => ({ mcds: [] })) : Promise.resolve({ mcds: [] }),
+      freezingLevelRes ? freezingLevelRes.json().catch(() => ({ freezeLevelFt: null })) : Promise.resolve({ freezeLevelFt: null }),
     ]);
 
     // — NEXRAD corroboration index ————————————————————————————
@@ -2734,7 +2741,8 @@ if (nexradCorroboratedCount > 0) {
         const hDateFormatted = `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
         return hDate === hDateFormatted;
       });
-      const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null);
+      const freezeLevelFt = freezingLevelData?.freezeLevelFt || null;
+      const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null, 2, freezeLevelFt);
       setIdwResult(idw);
     }
 
