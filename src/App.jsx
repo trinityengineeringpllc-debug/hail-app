@@ -271,13 +271,13 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
             const ringRadius = Math.abs(py - offsetCoords[1]);
             svg.append("circle").attr("cx",px).attr("cy",py).attr("r",ringRadius)
               .attr("fill","none")
-              .attr("stroke","rgba(118,168,255,0.2)")
-              .attr("stroke-width",1)
-              .attr("stroke-dasharray","4,4");
-            svg.append("text").attr("x",px+ringRadius+3).attr("y",py)
-              .attr("fill","rgba(118,168,255,0.45)")
-              .attr("font-size",7)
-              .attr("font-family",'"IBM Plex Mono", monospace')
+              .attr("stroke", isMain ? "rgba(118,168,255,0.7)" : "rgba(118,168,255,0.4)")
+              .attr("stroke-width", isMain ? 1.5 : 1)
+              .attr("stroke-dasharray", isMain ? "5,3" : "3,4");
+            svg.append("text").attr("x",px+ringRadius+4).attr("y",py+3)
+              .attr("fill", isMain ? "rgba(118,168,255,0.8)" : "rgba(118,168,255,0.55)")
+              .attr("font-size", isMain ? 8 : 7)
+              .attr("font-family",'"IBM Plex Mono", monospace').text(`${miles} mi`);
               .text("25 mi");
           }
 
@@ -2259,6 +2259,7 @@ export default function App() {
   const [layoutReady, setLayoutReady] = useState(false);
   const [nexradHits, setNexradHits] = useState([]);
   const mapPageRef = useRef(null);
+  const dolMapPdfRef = useRef(null);
 
   const pageRefs = useRef([]);
   const idwPdfRef = useRef(null);
@@ -2784,6 +2785,23 @@ if (nexradCorroboratedCount > 0) {
         pdf.rect(0, 0, pdfW, pdfH, "F");
         pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
       }
+      // Add DOL map page
+      if (idwResult && dolMapPdfRef.current) {
+        const dolMapCanvas = await html2canvas(dolMapPdfRef.current, {
+          backgroundColor: theme.pageBg,
+          scale: 2.2,
+          useCORS: true,
+          logging: false,
+          windowWidth: PAGE_W,
+          height: dolMapPdfRef.current.scrollHeight,
+        });
+        pdf.addPage();
+        pdf.setFillColor(3, 7, 15);
+        pdf.rect(0, 0, pdfW, pdfH, "F");
+        const dolRatio = dolMapCanvas.height / dolMapCanvas.width;
+        const dolH = Math.min(pdfW * dolRatio, pdfH);
+        pdf.addImage(dolMapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, dolH, undefined, "FAST");
+      }
       // Add IDW page if date of loss was set and IDW computed
       if (idwResult && idwPdfRef.current) {
         const idwNode = idwPdfRef.current;
@@ -3183,6 +3201,15 @@ if (nexradCorroboratedCount > 0) {
             {normalized && (
               <div ref={mapPageRef} style={{ width:PAGE_W, height:PAGE_H }}>
                 <HailMapPage data={normalized} nexradHits={nexradHits} />
+              </div>
+            )}
+            {/* Hidden DOL Map PDF page */}
+            {idwResult && dateOfLoss && (
+              <div ref={dolMapPdfRef} style={{ width:PAGE_W, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box" }}>
+                <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
+                  NEXRAD Recent Hail History · Date of Loss Analysis
+                </div>
+                <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} />
               </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
