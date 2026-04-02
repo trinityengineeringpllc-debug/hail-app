@@ -2053,7 +2053,7 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
                     <rect x="9" y="11" width="2" height="4" rx="0.5"/>
                     <rect x="4" y="15" width="12" height="2" rx="1"/>
                   </svg>
-                  {` NEXRAD (WSR-88D) ${row.nexradCorroboration.maxSizeIn}" aloft`}
+                  {` NEXRAD (WSR-88D) ${row.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)`}
                   {row.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (independent radar detection)"}
                   {row.nexradCorroboration.radar ? ` · ${row.nexradCorroboration.radar}` : ""}
                   {(() => {
@@ -2066,7 +2066,7 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
                     return (
                       <div style={{ marginTop: 2, color: geo.color }}>
                         <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: geo.color, marginRight: 4, verticalAlign: 'middle' }} />
-                        {`${geo.radarId} · ${geo.distMi} mi · beam bottom ${geo.beamBottom} ft · beam center ${geo.beamCenter} ft · beam width ${geo.beamWidth} ft (${geo.reliability})`}
+                       {`${geo.radarId} · ${geo.distMi} mi · beam bottom ${geo.beamBottom} ft · beam center ${geo.beamCenter} ft · beam width ${geo.beamWidth} ft (${geo.reliability}) · per FMH-11 Part B beam geometry`}
                       </div>
                     );
                   })()}
@@ -2077,6 +2077,9 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
           </div>
         ))
       )}
+      <div style={{ padding:"8px 18px 10px", borderTop:`1px solid #102240`, color:"#4d6797", fontSize:10, fontFamily:'"IBM Plex Mono", monospace', fontStyle:"italic" }}>
+        * All hail sizes represent maximum detection aloft by WSR-88D radar per FMH-11 Part C §2.18. Ground-level size may differ due to melting during descent.
+      </div>
     </TableShell>
   );
 }
@@ -2580,7 +2583,7 @@ DATE OF LOSS: ${dateOfLoss || "Not provided"}
 YOUR ONLY TASKS:
 1. Write a 2-3 sentence forensic weather summary
 2. Format the Visual Crossing stations below into the stations array for IDW interpolation
-3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/", "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11D.pdf"]
+3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/", "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11C.pdf", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11B.pdf", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11A.pdf"]
 
 DO NOT populate hailEvents — leave it as [].
 DO NOT populate otherEvents — leave it as [].
@@ -3160,7 +3163,9 @@ if (nexradCorroboratedCount > 0) {
             "https://www.visualcrossing.com": "Visual Crossing / ASOS Station Network",
             "https://mesonet.agron.iastate.edu/lsr/": "IEM Local Storm Reports",
             "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/": "NEXRAD Level-III Hail Detection (NOAA SWDI)",
-            "https://www.ofcm.gov/publications/fmh/FMH11/FMH11D.pdf": "Federal Meteorological Handbook No. 11D (FMH-11D) — WSR-88D Radar Methodology",
+            "https://www.ofcm.gov/publications/fmh/FMH11/FMH11C.pdf": "FMH-11 Part C §2.18 — WSR-88D Hail Index Algorithm (reflectivity thresholds, HDA logic)",
+            "https://www.ofcm.gov/publications/fmh/FMH11/FMH11B.pdf": "FMH-11 Part B — WSR-88D Beam Geometry & Physics (hail aloft vs. ground-level detection)",
+            "https://www.ofcm.gov/publications/fmh/FMH11/FMH11A.pdf": "FMH-11 Part A — WSR-88D Data Provenance & External User Access Rights",
           };
           const label = labels[s];
           return label ? (
