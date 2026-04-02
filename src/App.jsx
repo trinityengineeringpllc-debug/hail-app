@@ -535,8 +535,9 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
     return () => { cancelled = true; };
   }, [propLat, propLon, dateOfLoss, classifiedHits.length]);
 
-  return (
+return (
     <div style={{ marginTop:16 }}>
+      {/* Header row */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
         <div>
           <div style={{ color:"#4d6797", fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:2 }}>
@@ -564,27 +565,84 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
           </div>
         </div>
       </div>
-      <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, overflow:"hidden" }}>
-        {mapStatus === "loading" && (
-          <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:"#4d6797", fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
-            Loading map...
-          </div>
-        )}
-        {mapStatus === "error" && (
-          <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:"#4d6797", fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
-            Map unavailable
-          </div>
-        )}
-        <svg ref={svgRef} width={MAP_W} height={MAP_H} style={{ display: mapStatus==="ready" ? "block" : "none" }} />
-      </div>
-      {classifiedHits.length === 0 && mapStatus === "ready" && (
-        <div style={{ marginTop:8, color:"#4d6797", fontSize:10, fontFamily:'"IBM Plex Mono", monospace' }}>
-          No NEXRAD detections within view for this period
+
+      {/* Map + panel row */}
+      <div style={{ display:"flex", gap:10 }}>
+        {/* Map */}
+        <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, overflow:"hidden", flexShrink:0 }}>
+          {mapStatus === "loading" && (
+            <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:"#4d6797", fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
+              Loading map...
+            </div>
+          )}
+          {mapStatus === "error" && (
+            <div style={{ width:MAP_W, height:MAP_H, display:"flex", alignItems:"center", justifyContent:"center", color:"#4d6797", fontFamily:'"IBM Plex Mono", monospace', fontSize:11 }}>
+              Map unavailable
+            </div>
+          )}
+          <svg ref={svgRef} width={MAP_W} height={MAP_H} style={{ display: mapStatus==="ready" ? "block" : "none" }} />
         </div>
-      )}
+
+        {/* Hit list panel */}
+        <div style={{ flex:1, background:"#020609", border:"1px solid #17325f", borderRadius:8, padding:"10px 12px", overflowY:"auto", maxHeight:MAP_H, fontFamily:'"IBM Plex Mono", monospace', fontSize:9 }}>
+          {(() => {
+            // Attach distance to each hit
+            const hitsWithDist = classifiedHits.map(h => {
+              const dLat = ((parseFloat(h.lat) - propLat) * Math.PI) / 180;
+              const dLon = ((parseFloat(h.lon) - propLon) * Math.PI) / 180;
+              const a = Math.sin(dLat/2)**2 + Math.cos(propLat*Math.PI/180)*Math.cos(parseFloat(h.lat)*Math.PI/180)*Math.sin(dLon/2)**2;
+              const dist = 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              return { ...h, distMi: dist };
+            });
+
+            const bands = [
+              { label: "< 5 mi", min:0, max:5, color:"#4caf50" },
+              { label: "< 10 mi", min:5, max:10, color:"#8ef49c" },
+              { label: "< 15 mi", min:10, max:15, color:"#ffb04d" },
+              { label: "> 15 mi", min:15, max:999, color:"#4d6797" },
+            ];
+
+            const catColor = { dol:"#00dcff", before:"#ffb04d", after:"#ff6450" };
+            const catLabel = { dol:"DOL", before:"Prior", after:"Post" };
+
+            return bands.map(band => {
+              const bandHits = hitsWithDist
+                .filter(h => h.distMi >= band.min && h.distMi < band.max)
+                .sort((a,b) => b.hDate - a.hDate);
+
+              if (bandHits.length === 0) return null;
+
+              return (
+                <div key={band.label} style={{ marginBottom:10 }}>
+                  <div style={{ color:band.color, fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", borderBottom:"1px solid #102240", paddingBottom:3, marginBottom:5 }}>
+                    {band.label} · {bandHits.length} hit{bandHits.length !== 1 ? "s" : ""}
+                  </div>
+                  {bandHits.map((h, i) => (
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3, paddingBottom:3, borderBottom:"1px solid #050b14" }}>
+                      <div>
+                        <span style={{ color: catColor[h.category], fontSize:7, marginRight:4 }}>[{catLabel[h.category]}]</span>
+                        <span style={{ color:"#7ea2df" }}>{h.labelDate}</span>
+                      </div>
+                      <div style={{ display:"flex", gap:8, color:"#4d6797" }}>
+                        <span style={{ color:"#eef3ff" }}>{h.maxSizeIn}"</span>
+                        <span>{h.distMi.toFixed(1)} mi</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            });
+          })()}
+
+          {classifiedHits.length === 0 && (
+            <div style={{ color:"#4d6797", fontSize:10, marginTop:20, textAlign:"center" }}>
+              No NEXRAD detections in this period
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
-}
 const PAGE_W = 794;
 const PAGE_H = 1123;
 
