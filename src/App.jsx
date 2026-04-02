@@ -481,7 +481,7 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
           const coords = projection([parseFloat(hit.lon), parseFloat(hit.lat)]);
           if (!coords) return;
           const [x, y] = coords;
-          const r = Math.max(4, Math.min(10, parseFloat(hit.maxSizeIn) * 4));
+          const r = 6;
           const c = colorMap[hit.category];
           svg.append("circle").attr("cx",x).attr("cy",y).attr("r",r+4)
             .attr("fill",`${c.fill.replace("0.65","0.1")}`).attr("stroke","none");
