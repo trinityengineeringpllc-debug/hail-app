@@ -11,7 +11,7 @@ import {
   OtpVerifyScreen,
   NewPasswordScreen,
 } from "./AuthScreens";
-import { runIDW, IDWPanel } from "./IDWModule";
+import { runIDW, IDWPanel, meltingChartEstimate } from "./IDWModule";
 import DatePicker from "./DatePicker";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -348,7 +348,7 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
   );
 }
 // ── DOL NEXRAD Map (recent hail history, date-colored) ───────────────────────
-function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
+function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
 
@@ -623,8 +623,25 @@ return (
                         <span style={{ color:"#7ea2df" }}>{h.labelDate}</span>
                       </div>
                       <div style={{ display:"flex", gap:8, color:"#4d6797" }}>
-                        <span style={{ color:"#eef3ff" }}>{h.maxSizeIn}"</span>
-                        <span>{h.distMi.toFixed(1)} mi</span>
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>aloft</div>
+                          <span style={{ color:"#eef3ff" }}>{h.maxSizeIn}"</span>
+                        </div>
+                        {(() => {
+                          const surface = idwResult?.freezeLevelFt
+                            ? meltingChartEstimate(parseFloat(h.maxSizeIn), idwResult.freezeLevelFt)
+                            : null;
+                          return surface != null ? (
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>est. surface</div>
+                              <span style={{ color:"#8db7ff" }}>{surface}"</span>
+                            </div>
+                          ) : null;
+                        })()}
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>dist</div>
+                          <span>{h.distMi.toFixed(1)} mi</span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -3062,6 +3079,7 @@ if (nexradCorroboratedCount > 0) {
                   data={normalized}
                   nexradHits={nexradHits}
                   dateOfLoss={dateOfLoss}
+                  idwResult={idwResult}
                 />
               </div>
             )}
@@ -3238,7 +3256,7 @@ if (nexradCorroboratedCount > 0) {
                 <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                   NEXRAD Recent Hail History · Date of Loss Analysis
                 </div>
-                <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} />
+                <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} />
               </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
