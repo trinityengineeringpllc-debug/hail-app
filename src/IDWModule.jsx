@@ -113,7 +113,7 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
   }
 
   return {
-    hailSizeIn:         parseFloat(hailSize.toFixed(2)),
+    hailSizeIn: nexradHit ? parseFloat(parseFloat(nexradHit.maxSizeIn).toFixed(2)) : parseFloat(hailSize.toFixed(2)),
     hailProbability:    parseFloat(hailProb.toFixed(1)),
     windSpeedMph:       parseFloat(windSpeed.toFixed(1)),
     windGustMph:        parseFloat(windGust.toFixed(1)),
