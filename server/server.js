@@ -398,6 +398,7 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     });
 
   } catch (err) {
+    console.error('StormEvents error:', err.message, err.stack);
     res.status(500).json({ error: err.message });
   }
 });
