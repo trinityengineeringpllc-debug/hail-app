@@ -2850,7 +2850,13 @@ if (nexradCorroboratedCount > 0) {
         .replace(/^-+|-+$/g, "")
         .toLowerCase();
 
-      const fileName = `trinity-swi-report-${countyName}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const streetAddress = String(normalized.location.address || "")
+        .split(",")[0]
+        .trim()
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const queryDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const fileName = `SWIReport.${streetAddress}.${countyName}.${queryDate}.pdf`;
 
       pdf.save(fileName);
     } catch (err) {
