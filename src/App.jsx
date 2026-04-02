@@ -464,11 +464,12 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss }) {
             const isMain = miles === 25;
             svg.append("circle").attr("cx",px).attr("cy",py).attr("r",ringRadius)
               .attr("fill","none")
-              .attr("stroke", isMain ? "rgba(118,168,255,0.25)" : "rgba(118,168,255,0.12)")
-              .attr("stroke-width", isMain ? 1 : 0.6)
-              .attr("stroke-dasharray", isMain ? "4,4" : "2,4");
-            svg.append("text").attr("x",px+ringRadius+3).attr("y",py)
-              .attr("fill","rgba(118,168,255,0.35)").attr("font-size",6)
+              .attr("stroke","rgba(118,168,255,0.5)")
+              .attr("stroke-width",1.2)
+              .attr("stroke-dasharray","5,3");
+            svg.append("text").attr("x",px+ringRadius+4).attr("y",py+3)
+              .attr("fill","rgba(118,168,255,0.7)")
+              .attr("font-size",8)
               .attr("font-family",'"IBM Plex Mono", monospace').text(`${miles} mi`);
           });
         }
