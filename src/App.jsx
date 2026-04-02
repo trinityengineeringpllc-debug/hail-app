@@ -2473,7 +2473,7 @@ No prose. No markdown. Just the JSON.`,
     const endDate = `${currentYear}-12-31`;
 
     // ── Step 2: Fetch all three data sources in parallel ─────────────────────
-const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes] = await Promise.all([
+const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freezingLevelRes] = await Promise.all([
   fetch(
         `${API}/api/noaa/events?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include", headers: authHeaders }
