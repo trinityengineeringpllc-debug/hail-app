@@ -2866,18 +2866,9 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
           height: PAGE_H,
         });
         pdf.addPage();
-        pdf.setFillColor(3, 7, 15);
-        pdf.rect(0, 0, pdfW, pdfH, "F");
-        const dolRatio = dolMapCanvas.height / dolMapCanvas.width;
-        const dolH = pdfW * dolRatio;
-        if (dolH > pdfH) {
-          pdf.addPage();
           pdf.setFillColor(3, 7, 15);
           pdf.rect(0, 0, pdfW, pdfH, "F");
           pdf.addImage(dolMapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
-        } else {
-          pdf.addImage(dolMapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, dolH, undefined, "FAST");
-        }
       }
       // Add IDW page if date of loss was set and IDW computed
       if (idwResult && idwPdfRef.current) {
