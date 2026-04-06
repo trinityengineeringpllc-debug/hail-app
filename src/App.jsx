@@ -348,7 +348,7 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
   );
 }
 // ── DOL NEXRAD Map (recent hail history, date-colored) ───────────────────────
-function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null }) {
+function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
 
@@ -2907,8 +2907,16 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
         const idwImg = idwCanvas.toDataURL("image/png");
         // Scale proportionally, anchored to top-left
         const idwRatio = idwCanvas.height / idwCanvas.width;
-        const idwH = Math.min(pdfW * idwRatio, pdfH);
-        pdf.addImage(idwImg, "PNG", 0, 0, pdfW, idwH, undefined, "FAST");
+        const idwNaturalH = pdfW * idwRatio;
+        if (idwNaturalH <= pdfH) {
+          pdf.addImage(idwImg, "PNG", 0, 0, pdfW, idwNaturalH, undefined, "FAST");
+        } else {
+          const pages = Math.ceil(idwNaturalH / pdfH);
+          for (let p = 0; p < pages; p++) {
+            if (p > 0) { pdf.addPage(); pdf.setFillColor(3, 7, 15); pdf.rect(0, 0, pdfW, pdfH, "F"); }
+            pdf.addImage(idwImg, "PNG", 0, -(p * pdfH), pdfW, idwNaturalH, undefined, "FAST");
+          }
+        }
       }
 
       const countyName = String(normalized.location.county || "report")
@@ -3125,6 +3133,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
                   nexradHits={nexradHits}
                   dateOfLoss={dateOfLoss}
                   idwResult={idwResult}
+                  freezeLevelFt={freezeLevelFt}
                 />
               </div>
             )}
@@ -3315,7 +3324,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
-            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} />
+            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} />
             </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
