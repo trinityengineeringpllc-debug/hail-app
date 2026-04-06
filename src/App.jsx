@@ -2855,7 +2855,6 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
           pdf.rect(0, 0, pdfW, pdfH, "F");
           pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
         }
-      }
       // Add DOL map page
       if (idwResult && dolMapPdfRef.current) {
         const dolMapCanvas = await html2canvas(dolMapPdfRef.current, {
