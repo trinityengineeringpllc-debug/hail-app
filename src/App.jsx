@@ -628,8 +628,8 @@ return (
                           <span style={{ color:"#eef3ff" }}>{h.maxSizeIn}"</span>
                         </div>
                         {(() => {
-                          const surface = idwResult?.freezeLevelFt
-                            ? meltingChartEstimate(parseFloat(h.maxSizeIn), idwResult.freezeLevelFt)
+                          const surface = freezeLevelFt
+                            ? meltingChartEstimate(parseFloat(h.maxSizeIn), freezeLevelFt)
                             : null;
                           return surface != null ? (
                             <div style={{ textAlign:"right" }}>
