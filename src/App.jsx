@@ -3266,12 +3266,12 @@ if (nexradCorroboratedCount > 0) {
             )}
             {/* Hidden DOL Map PDF page */}
             {idwResult && dateOfLoss && (
-              <div ref={dolMapPdfRef} style={{ width:PAGE_W, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box" }}>
-                <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
-                  NEXRAD Recent Hail History · Date of Loss Analysis
-                </div>
-                <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} />
-              </div>
+              <div ref={dolMapPdfRef} style={{ width:PAGE_W, height:PAGE_H, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box", overflow:"hidden" }}>
+              <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
+               NEXRAD Recent Hail History · Date of Loss Analysis
+            </div>
+            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} />
+            </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
             {idwResult && (
