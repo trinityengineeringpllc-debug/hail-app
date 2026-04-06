@@ -3126,27 +3126,41 @@ if (nexradCorroboratedCount > 0) {
             </div>
 
             {normalized.hailEvents.map((row, i) => (
-              <div
-                key={`measure-hail-row-${i}`}
-                ref={(el) => {
-                  hailRowMeasureRefs.current[i] = el;
-                }}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: HAIL_COLUMNS.map((c) => c.width).join(" "),
-                  padding: "13px 18px",
-                  fontSize: 13,
-                  lineHeight: 1.35,
-                  width: PAGE_W - 44,
-                }}
-              >
-                <div style={monoCellStyle}>{formatDate(row.date)}</div>
-                <div style={{ ...monoCellStyle, color: "#ffcb54", fontWeight: 700 }}>
-                  {row.size || "N/A"}
-                </div>
-                <div style={monoCellStyle}>{row.location || "N/A"}</div>
-              </div>
-            ))}
+  <div
+    key={`measure-hail-row-${i}`}
+    ref={(el) => { hailRowMeasureRefs.current[i] = el; }}
+    style={{
+      display: "grid",
+      gridTemplateColumns: HAIL_COLUMNS.map((c) => c.width).join(" "),
+      padding: "13px 18px",
+      fontSize: 13,
+      lineHeight: 1.35,
+      width: PAGE_W - 44,
+    }}
+  >
+    <div style={monoCellStyle}>{formatDate(row.date)}</div>
+    <div style={{ ...monoCellStyle, color: "#ffcb54", fontWeight: 700 }}>
+      {row.size || "N/A"}
+      {row.nexradCorroboration && (
+        <div style={{ fontSize: 10, fontWeight: 400, marginTop: 3 }}>
+          {`NEXRAD (WSR-88D) ${row.nexradCorroboration.maxSizeIn}" aloft`}
+          {(row.nexradCorroboration.probHail != null || row.nexradCorroboration.probSevere != null) && (
+            <div style={{ marginTop: 2, fontSize: 9 }}>
+              {row.nexradCorroboration.probHail != null && `POH: ${row.nexradCorroboration.probHail}%`}
+              {row.nexradCorroboration.probSevere != null && ` · POSH: ${row.nexradCorroboration.probSevere}%`}
+            </div>
+          )}
+          {row.nexradCorroboration.radar && (
+            <div style={{ marginTop: 2, fontSize: 9 }}>
+              {`${row.nexradCorroboration.radar} · beam geometry`}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+    <div style={monoCellStyle}>{row.location || "N/A"}</div>
+  </div>
+))}
 
             <div ref={otherBaseMeasureRef} style={{ width: PAGE_W }}>
               <OtherEventsTable rows={[]} title="Other Severe Weather Events" style={{ marginBottom: 0 }} />
