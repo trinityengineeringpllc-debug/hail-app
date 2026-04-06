@@ -2270,6 +2270,10 @@ export default function App() {
 
   const [dateOfLoss, setDateOfLoss] = useState("");
   const [idwResult, setIdwResult] = useState(null);
+  const [dolNexradHit, setDolNexradHit] = useState(null);
+  const [propCoords, setPropCoords] = useState({ lat: null, lon: null });
+  const [freezeLevelFt, setFreezeLevelFt] = useState(null);
+  const [corroboration, setCorroboration] = useState(null);
 
   const [authChecking, setAuthChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -2451,6 +2455,10 @@ async function handleLookup() {
   setError("");
   setResult(null);
   setIdwResult(null);
+  setDolNexradHit(null);
+  setPropCoords({ lat: null, lon: null });
+  setFreezeLevelFt(null);
+  setCorroboration(null);
   setNexradHits([]);
 
   try {
@@ -2750,7 +2758,14 @@ if (nexradCorroboratedCount > 0) {
     setNexradHits(nexradData?.hits || []);
     setResult(parsed);
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
-    if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
+    const dolHailCount = directHailEvents.filter(e => e.date === dateOfLoss).length;
+const dolLsrCount  = nearbyLsr.filter(r => r.valid?.startsWith(dateOfLoss) || r.date === dateOfLoss).length;
+setDolNexradHit(dolNexradHit || null);
+setPropCoords({ lat, lon });
+setFreezeLevelFt(freezingLevelData?.freezeLevelFt || null);
+setCorroboration({ stormEventsHailCount: dolHailCount, lsrCount: dolLsrCount });
+
+if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
       const dolNexradHit = nexradData?.hits?.find(h => {
         const hDate = h.date;
         const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
@@ -2759,7 +2774,7 @@ if (nexradCorroboratedCount > 0) {
         return hDate === hDateFormatted;
       });
       const freezeLevelFt = freezingLevelData?.freezeLevelFt || null;
-      const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null, 2, freezeLevelFt);
+      const idw = runIDW(lat, lon, parsed.stations, 2);
       setIdwResult(idw);
     }
 
@@ -3071,6 +3086,10 @@ if (nexradCorroboratedCount > 0) {
                 </div>
                 <IDWPanel
                   idwResult={idwResult}
+                  nexradHit={dolNexradHit}
+                  beamGeometry={dolNexradHit?.radar && propCoords.lat ? getBeamGeometry(propCoords.lat, propCoords.lon, dolNexradHit.radar) : null}
+                  freezeLevelFt={freezeLevelFt}
+                  corroboration={corroboration}
                   dateOfLoss={dateOfLoss}
                   propertyAddress={normalized.location.address}
                   mcds={normalized?.mcds || []}
@@ -3309,6 +3328,10 @@ if (nexradCorroboratedCount > 0) {
                 </div>
                 <IDWPanel
                   idwResult={idwResult}
+                  nexradHit={dolNexradHit}
+                  beamGeometry={dolNexradHit?.radar && propCoords.lat ? getBeamGeometry(propCoords.lat, propCoords.lon, dolNexradHit.radar) : null}
+                  freezeLevelFt={freezeLevelFt}
+                  corroboration={corroboration}
                   dateOfLoss={dateOfLoss}
                   propertyAddress={normalized.location.address}
                   mcds={normalized?.mcds || []}
