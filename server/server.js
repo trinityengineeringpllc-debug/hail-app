@@ -553,12 +553,9 @@ const UPPER_AIR_STATIONS = [
 ];
 
 function nearestStation(lat, lon) {
-  let best = null, bestDist = Infinity;
-  for (const s of UPPER_AIR_STATIONS) {
-    const d = Math.sqrt((s.lat - lat) ** 2 + (s.lon - lon) ** 2);
-    if (d < bestDist) { bestDist = d; best = s; }
-  }
-  return best;
+  return UPPER_AIR_STATIONS
+    .map(s => ({ ...s, dist: Math.sqrt((s.lat - lat) ** 2 + (s.lon - lon) ** 2) }))
+    .sort((a, b) => a.dist - b.dist);
 }
 
 function parseFreezeLevel(html) {
@@ -593,27 +590,29 @@ app.get("/api/freezinglevel", async (req, res) => {
   const { lat, lon, date } = req.query;
   if (!lat || !lon || !date) return res.status(400).json({ error: "lat, lon, date required" });
 
-  const station = nearestStation(parseFloat(lat), parseFloat(lon));
-  const d = new Date(date + "T12:00:00Z"); // 12Z sounding
+  const stations = nearestStation(parseFloat(lat), parseFloat(lon));
+  const d = new Date(date + "T12:00:00Z");
   const year  = d.getUTCFullYear();
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
   const day   = String(d.getUTCDate()).padStart(2, "0");
   const hour  = "12";
-
-  const url = `https://weather.uwyo.edu/cgi-bin/sounding?region=naconf&TYPE=TEXT%3ALIST&YEAR=${year}&MONTH=${month}&FROM=${day}${hour}&TO=${day}${hour}&STNM=${station.id}`;
-
   try {
-    const response = await fetch(url);
-    const html = await response.text();
-    const freezeLevelFt = parseFreezeLevel(html);
-    if (!freezeLevelFt) return res.status(404).json({ error: "Freezing level not found in sounding" });
-    res.json({
-      freezeLevelFt,
-      station: station.name,
-      stationId: station.id,
-      soundingTime: `${year}-${month}-${day} 12Z`,
-      source: "University of Wyoming Radiosonde Archive",
-    });
+    for (const station of stations.slice(0, 4)) {
+      const url = `https://weather.uwyo.edu/cgi-bin/sounding?region=naconf&TYPE=TEXT%3ALIST&YEAR=${year}&MONTH=${month}&FROM=${day}${hour}&TO=${day}${hour}&STNM=${station.id}`;
+      const response = await fetch(url);
+      const html = await response.text();
+      const freezeLevelFt = parseFreezeLevel(html);
+      if (freezeLevelFt) {
+        return res.json({
+          freezeLevelFt,
+          station: station.name,
+          stationId: station.id,
+          soundingTime: `${year}-${month}-${day} 12Z`,
+          source: "University of Wyoming Radiosonde Archive",
+        });
+      }
+    }
+    return res.status(404).json({ error: "Freezing level not found in any nearby sounding" });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
