@@ -770,10 +770,8 @@ Using the Visual Crossing station observations provided, populate up to 6 statio
   "windSpeedMph": 0,
   "windGustMph": 0
 }
-Cross-reference each station with any Tier 1 LSR hail reports within 10 miles on the same date.
-If LSR confirms hail near a station, set hailSizeIn to that magnitude and hailProbability to 85.
-If no LSR hail near a station, set hailSizeIn to 0 and hailProbability to 5.
-Return empty array [] when no Date of Loss is provided.`;
+IMPORTANT: ASOS stations do not detect hail. Set hailSizeIn to 0 and hailProbability to 0 for all stations regardless of LSR data. Do NOT reference hail probability from ASOS stations in the summary. Hail probability is determined exclusively by NEXRAD POSH and is shown separately in the DOL analysis panel.
+Return empty array [] when no Date of Loss is provided.`
 
 
 const monoCellStyle = {
@@ -2617,7 +2615,7 @@ COORDINATES: ${lat}, ${lon}
 DATE OF LOSS: ${dateOfLoss || "Not provided"}
 
 YOUR ONLY TASKS:
-1. Write a 2-3 sentence forensic weather summary
+1. Write a 2-3 sentence forensic weather summary. If DATE OF LOSS is provided, the summary MUST reference wind and precipitation conditions from ASOS stations only. Do NOT assess hail probability from ASOS data — ASOS does not detect hail. If NEXRAD data is provided in the structured data below and it matches the date of loss, reference it explicitly by radar site and detection magnitude (e.g. "WSR-88D radar site KOHX independently detected 3.75 inch hail aloft on the date of loss per FMH-11 Part C"). If no NEXRAD data is provided for the date of loss, do not mention hail probability at all.
 2. Format the Visual Crossing stations below into the stations array for IDW interpolation
 3. Return these exact sources: ["https://www.ncdc.noaa.gov/stormevents/", "https://www.visualcrossing.com", "https://mesonet.agron.iastate.edu/lsr/", "https://www.ncei.noaa.gov/swdiws/csv/nx3hail/", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11C.pdf", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11B.pdf", "https://www.ofcm.gov/publications/fmh/FMH11/FMH11A.pdf"]
 
