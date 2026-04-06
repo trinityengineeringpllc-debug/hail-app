@@ -2758,13 +2758,7 @@ if (nexradCorroboratedCount > 0) {
     setNexradHits(nexradData?.hits || []);
     setResult(parsed);
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
-    const dolHailCount = directHailEvents.filter(e => e.date === dateOfLoss).length;
-const dolLsrCount  = nearbyLsr.filter(r => r.valid?.startsWith(dateOfLoss) || r.date === dateOfLoss).length;
-setDolNexradHit(dolNexradHit || null);
-setPropCoords({ lat, lon });
-setFreezeLevelFt(freezingLevelData?.freezeLevelFt || null);
-setCorroboration({ stormEventsHailCount: dolHailCount, lsrCount: dolLsrCount });
-
+    
 // Resolve DOL NEXRAD hit outside the IDW block so it's available for state
 const dolNexradHit = dateOfLoss ? (() => {
   const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
