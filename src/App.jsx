@@ -2765,6 +2765,28 @@ setPropCoords({ lat, lon });
 setFreezeLevelFt(freezingLevelData?.freezeLevelFt || null);
 setCorroboration({ stormEventsHailCount: dolHailCount, lsrCount: dolLsrCount });
 
+// Resolve DOL NEXRAD hit outside the IDW block so it's available for state
+const dolNexradHit = dateOfLoss ? (() => {
+  const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const hDateFormatted = `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
+  return (nexradData?.hits || []).find(h => h.date === hDateFormatted) || null;
+})() : null;
+
+// Corroboration counts — convert DOL to DD-MMM-YYYY for Storm Events date matching
+const dolFormatted = dateOfLoss ? (() => {
+  const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
+})() : null;
+const dolHailCount = dolFormatted ? directHailEvents.filter(e => e.date === dolFormatted).length : 0;
+const dolLsrCount  = nearbyLsr.filter(r => r.valid?.startsWith(dateOfLoss) || r.date === dateOfLoss).length;
+
+setDolNexradHit(dolNexradHit);
+setPropCoords({ lat, lon });
+setFreezeLevelFt(freezingLevelData?.freezeLevelFt || null);
+setCorroboration({ stormEventsHailCount: dolHailCount, lsrCount: dolLsrCount });
+
 if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
       const dolNexradHit = nexradData?.hits?.find(h => {
         const hDate = h.date;
