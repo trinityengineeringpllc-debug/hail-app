@@ -3322,6 +3322,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
                 ref={idwPdfRef}
                 style={{
                   width: PAGE_W,
+                  minHeight: PAGE_H * 2,
                   background: theme.pageBg,
                   color: theme.text,
                   fontFamily: "Inter, Arial, sans-serif",
@@ -3341,11 +3342,12 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <img src="/swi-logo.png" alt="SWI" style={{ height: 40, width: "auto", objectFit: "contain" }} />
                     <div>
-                      <div style={{ color: theme.white, fontWeight: 800, fontSize: 14, letterSpacing: 0.4 }}>SEVERE WEATHER INTELLIGENCE</div>
-                      <div style={{ color: theme.muted2, fontSize: 8, letterSpacing: 2.5, fontFamily: '"IBM Plex Mono", monospace', textTransform: "uppercase", marginTop: 3 }}>Date-of-Loss Storm Interpolation Report</div>
+                      <div style={{ color: theme.white, fontWeight: 800, fontSize: 14, letterSpacing: 0.4 }}>DATE OF LOSS ANALYSIS</div>
+                      <div style={{ color: theme.muted2, fontSize: 8, letterSpacing: 2.5, fontFamily: '"IBM Plex Mono", monospace', textTransform: "uppercase", marginTop: 3 }}>Site Specific Storm Interpolation</div>
                     </div>
                   </div>
                   <div style={{ textAlign: "right", color: theme.muted2, fontSize: 8, letterSpacing: 1.2, fontFamily: '"IBM Plex Mono", monospace', lineHeight: 1.6 }}>
+                    <div>NEXRAD DATA ANALYSIS</div>
                     <div>IDW INTERPOLATION ENGINE v1.0.0</div>
                     <div>NOAA NWS · NCEI STORM EVENTS</div>
                   </div>
