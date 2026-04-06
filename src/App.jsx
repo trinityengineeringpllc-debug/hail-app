@@ -2839,20 +2839,22 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
         pdf.rect(0, 0, pdfW, pdfH, "F");
         pdf.addImage(img, "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
       }
-      // Add map page — wait for SVG to finish rendering
-      if (mapPageRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-          backgroundColor: theme.pageBg,
-          scale: 2.2,
-          useCORS: true,
-          logging: false,
-          windowWidth: PAGE_W,
-          windowHeight: PAGE_H,
-        });
-        pdf.addPage();
-        pdf.setFillColor(3, 7, 15);
-        pdf.rect(0, 0, pdfW, pdfH, "F");
-        pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
+      // Add map page – wait for SVG to finish rendering
+        if (mapPageRef.current) {
+          await new Promise(function(resolve) { setTimeout(resolve, 1200); });
+          const mapCanvas = await html2canvas(mapPageRef.current, {
+            backgroundColor: theme.pageBg,
+            scale: 2.2,
+            useCORS: true,
+            logging: false,
+            windowWidth: PAGE_W,
+            windowHeight: PAGE_H,
+          });
+          pdf.addPage();
+          pdf.setFillColor(3, 7, 15);
+          pdf.rect(0, 0, pdfW, pdfH, "F");
+          pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
+        }
       }
       // Add DOL map page
       if (idwResult && dolMapPdfRef.current) {
