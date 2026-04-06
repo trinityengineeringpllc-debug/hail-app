@@ -1,6 +1,5 @@
-
 // ─────────────────────────────────────────────────────────────────────────────
-// IDW INTERPOLATION ENGINE
+// MULTI-SOURCE DOL STORM ANALYSIS ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EARTH_RADIUS_MILES = 3958.8;
@@ -15,47 +14,31 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   return EARTH_RADIUS_MILES * 2 * Math.asin(Math.sqrt(a));
 }
 
-/**
- * Mathematical confidence scoring — continuous, not hardcoded thresholds.
- *
- * Formula:
- *   distFactor  = exp(-nearestMi / 8)        → decays smoothly with distance
- *   countFactor = 1 - exp(-n / 2)            → saturates at ~3+ stations
- *   spreadFactor = 1 - (stdDev / mean)       → penalises high data variance
- *   confidence  = distFactor * 0.6 + countFactor * 0.25 + spreadFactor * 0.15
- */
-function computeConfidence(nearestMi, stationCount, hailValues) {
+function computeConfidence(nearestMi, stationCount, windValues) {
   const distFactor = Math.exp(-nearestMi / 8);
   const countFactor = 1 - Math.exp(-stationCount / 2);
-
   let spreadFactor = 1;
-  if (hailValues.length > 1) {
-    const mean = hailValues.reduce((s, v) => s + v, 0) / hailValues.length;
+  if (windValues.length > 1) {
+    const mean = windValues.reduce((s, v) => s + v, 0) / windValues.length;
     if (mean > 0) {
-      const variance =
-        hailValues.reduce((s, v) => s + (v - mean) ** 2, 0) / hailValues.length;
+      const variance = windValues.reduce((s, v) => s + (v - mean) ** 2, 0) / windValues.length;
       const stdDev = Math.sqrt(variance);
       spreadFactor = Math.max(0, 1 - stdDev / mean);
     }
   }
-
   const raw = distFactor * 0.6 + countFactor * 0.25 + spreadFactor * 0.15;
   const confidence = Math.min(Math.max(raw, 0.05), 0.97);
-
   let confidenceLabel;
   if (confidence >= 0.75) confidenceLabel = "HIGH";
   else if (confidence >= 0.55) confidenceLabel = "MODERATE";
   else if (confidence >= 0.35) confidenceLabel = "LOW";
   else confidenceLabel = "VERY LOW";
-
   return { confidence: parseFloat(confidence.toFixed(3)), confidenceLabel };
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NCAR HAIL MELTING CHART — Knight (1981)
-// Estimates surface hail size from radar-detected aloft size + freezing level.
-// Formula: surfaceSize = aloftSize * exp(-k * warmLayerFt)
-// where warmLayerFt is the depth of air below the freezing level (proxy: freezeLevelFt)
-// k = 0.000055 (empirical constant from Knight 1981 regression)
+// surfaceSize = aloftSize × e^(−k × freezeLevelFt), k = 0.000055
 // ─────────────────────────────────────────────────────────────────────────────
 export function meltingChartEstimate(hailSizeAloftIn, freezeLevelFt) {
   if (!hailSizeAloftIn || !freezeLevelFt) return null;
@@ -64,7 +47,12 @@ export function meltingChartEstimate(hailSizeAloftIn, freezeLevelFt) {
   return parseFloat(Math.max(surface, 0).toFixed(2));
 }
 
-export function runIDW(targetLat, targetLon, stations, nexradHit = null, power = 2, freezeLevelFt = null) {
+// ─────────────────────────────────────────────────────────────────────────────
+// runIDW — wind interpolation only.
+// ASOS instrumentation does not detect hail. Hail probability is derived
+// exclusively from NEXRAD POSH per FMH-11 Part C §2.18.
+// ─────────────────────────────────────────────────────────────────────────────
+export function runIDW(targetLat, targetLon, stations, power = 2) {
   if (!stations || stations.length === 0) return null;
 
   const withDistances = stations
@@ -72,7 +60,7 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
       ...s,
       distanceMiles: haversineDistance(targetLat, targetLon, s.lat, s.lon),
     }))
-    .filter((s) => s.distanceMiles > 0.01); // exclude exact-match duplicates
+    .filter((s) => s.distanceMiles > 0.01);
 
   if (withDistances.length === 0) return null;
 
@@ -83,48 +71,26 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
   }));
   const totalWeight = weighted.reduce((sum, s) => sum + s.weight, 0);
 
-  const hailSize      = weighted.reduce((sum, s) => sum + s.weight * (s.hailSizeIn      ?? 0), 0) / totalWeight;
-  const hailProb      = weighted.reduce((sum, s) => sum + s.weight * (s.hailProbability ?? 0), 0) / totalWeight;
-  const windSpeed     = weighted.reduce((sum, s) => sum + s.weight * (s.windSpeedMph    ?? 0), 0) / totalWeight;
-  const windGust      = weighted.reduce((sum, s) => sum + s.weight * (s.windGustMph     ?? 0), 0) / totalWeight;
+  const windSpeed = weighted.reduce((sum, s) => sum + s.weight * (s.windSpeedMph ?? 0), 0) / totalWeight;
+  const windGust  = weighted.reduce((sum, s) => sum + s.weight * (s.windGustMph  ?? 0), 0) / totalWeight;
 
   const nearestMi = sorted[0].distanceMiles;
-  let { confidence, confidenceLabel } = computeConfidence(
+  const { confidence, confidenceLabel } = computeConfidence(
     nearestMi,
     sorted.length,
-    sorted.map((s) => s.hailSizeIn ?? 0)
+    sorted.map((s) => s.windSpeedMph ?? 0)
   );
 
-  let nexradBoost = null;
-  if (nexradHit) {
-    const boost = 0.12;
-    confidence = Math.min(confidence + boost, 0.97);
-    if (confidence >= 0.85) confidenceLabel = "HIGH";
-    else if (confidence >= 0.65) confidenceLabel = "MODERATE";
-    else confidenceLabel = "LOW";
-    nexradBoost = {
-      applied: true,
-      radar: nexradHit.radar,
-      maxSizeIn: nexradHit.maxSizeIn,
-      probHail: nexradHit.probHail ?? null,
-      probSevere: nexradHit.probSevere ?? null,
-      note: `NEXRAD corroboration: WSR-88D${nexradHit.radar ? ` (${nexradHit.radar})` : ""} independently detected ${nexradHit.maxSizeIn}" hail aloft on date of loss${nexradHit.probHail != null ? ` · POH: ${nexradHit.probHail}%` : ""}${nexradHit.probSevere != null ? ` · POSH: ${nexradHit.probSevere}%` : ""} — confidence elevated.`,
-    };
-  }
-
   return {
-    hailSizeIn: nexradHit ? parseFloat(parseFloat(nexradHit.maxSizeIn).toFixed(2)) : parseFloat(hailSize.toFixed(2)),
-    hailProbability:    parseFloat(hailProb.toFixed(1)),
-    windSpeedMph:       parseFloat(windSpeed.toFixed(1)),
-    windGustMph:        parseFloat(windGust.toFixed(1)),
-    method:             "IDW Spatial Interpolation (Shepard, 1968)",
-    methodVersion:      "1.0.0",
-    stationCount:       sorted.length,
-    nearestStationMiles: parseFloat(nearestMi.toFixed(2)),
-    nearestStationName: sorted[0].name,
+    windSpeedMph:         parseFloat(windSpeed.toFixed(1)),
+    windGustMph:          parseFloat(windGust.toFixed(1)),
+    method:               "IDW Spatial Interpolation (Shepard, 1968)",
+    methodVersion:        "1.0.0",
+    stationCount:         sorted.length,
+    nearestStationMiles:  parseFloat(nearestMi.toFixed(2)),
+    nearestStationName:   sorted[0].name,
     confidence,
     confidenceLabel,
-    nexradBoost,
     stationsUsed: weighted.map((s) => ({
       id:              s.id,
       name:            s.name,
@@ -132,14 +98,12 @@ export function runIDW(targetLat, targetLon, stations, nexradHit = null, power =
       distanceMiles:   parseFloat(s.distanceMiles.toFixed(2)),
       contributionPct: parseFloat(((s.weight / totalWeight) * 100).toFixed(1)),
     })),
-    surfaceHailSizeIn: nexradHit ? meltingChartEstimate(parseFloat(nexradHit.maxSizeIn), freezeLevelFt) : null,
-    freezeLevelFt: freezeLevelFt,
     computedAt: new Date().toISOString(),
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DARK THEME TOKENS (matches App.jsx exactly)
+// DARK THEME TOKENS
 // ─────────────────────────────────────────────────────────────────────────────
 const T = {
   bg:          "#03070f",
@@ -165,73 +129,42 @@ const T = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONFIDENCE BADGE
+// SHARED UI ATOMS
 // ─────────────────────────────────────────────────────────────────────────────
 function ConfidenceBadge({ label }) {
   const map = {
     HIGH:       { bg: T.greenBg,  border: T.greenBorder, text: T.green },
     MODERATE:   { bg: T.amberBg,  border: T.amberBorder, text: T.amber },
     LOW:        { bg: "#1a0e00",  border: "#7a4000",      text: "#e07a20" },
-    "VERY LOW": { bg: T.redBg,    border: T.redBorder,   text: T.red   },
+    "VERY LOW": { bg: T.redBg,    border: T.redBorder,    text: T.red   },
   };
   const s = map[label] || map["VERY LOW"];
   return (
-    <span
-      style={{
-        background: s.bg,
-        border: `1px solid ${s.border}`,
-        color: s.text,
-        padding: "3px 10px",
-        borderRadius: 4,
-        fontSize: 10,
-        fontFamily: '"IBM Plex Mono", monospace',
-        letterSpacing: "0.1em",
-        fontWeight: 700,
-      }}
-    >
+    <span style={{
+      background: s.bg, border: `1px solid ${s.border}`, color: s.text,
+      padding: "3px 10px", borderRadius: 4, fontSize: 10,
+      fontFamily: '"IBM Plex Mono", monospace', letterSpacing: "0.1em", fontWeight: 700,
+    }}>
       {label}
     </span>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// METRIC CARD
-// ─────────────────────────────────────────────────────────────────────────────
 function MetricCard({ label, value, unit, sublabel }) {
   return (
-    <div
-      style={{
-        background: T.bg,
-        border: `1px solid ${T.border}`,
-        borderTop: `3px solid ${T.blue}`,
-        borderRadius: 8,
-        padding: "14px 16px",
-        flex: 1,
-        minWidth: 120,
-      }}
-    >
-      <div
-        style={{
-          color: T.muted2,
-          fontSize: 9,
-          fontFamily: '"IBM Plex Mono", monospace',
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          marginBottom: 8,
-        }}
-      >
+    <div style={{
+      background: T.bg, border: `1px solid ${T.border}`,
+      borderTop: `3px solid ${T.blue}`, borderRadius: 8,
+      padding: "14px 16px", flex: 1, minWidth: 120,
+    }}>
+      <div style={{
+        color: T.muted2, fontSize: 9, fontFamily: '"IBM Plex Mono", monospace',
+        letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8,
+      }}>
         {label}
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-        <span
-          style={{
-            color: T.blueBright,
-            fontSize: 28,
-            fontFamily: '"IBM Plex Mono", monospace',
-            fontWeight: 700,
-            lineHeight: 1,
-          }}
-        >
+        <span style={{ color: T.blueBright, fontSize: 28, fontFamily: '"IBM Plex Mono", monospace', fontWeight: 700, lineHeight: 1 }}>
           {value ?? "—"}
         </span>
         <span style={{ color: T.muted2, fontSize: 11, fontFamily: '"IBM Plex Mono", monospace' }}>
@@ -247,27 +180,17 @@ function MetricCard({ label, value, unit, sublabel }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STATION TABLE
-// ─────────────────────────────────────────────────────────────────────────────
 function StationTable({ stations }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
       <thead>
         <tr style={{ borderBottom: `1px solid ${T.border}` }}>
           {["Station", "Source", "Distance", "Weight"].map((h) => (
-            <th
-              key={h}
-              style={{
-                color: T.muted2,
-                fontFamily: '"IBM Plex Mono", monospace',
-                fontSize: 9,
-                letterSpacing: "0.1em",
-                textAlign: "left",
-                padding: "6px 10px",
-                fontWeight: 600,
-              }}
-            >
+            <th key={h} style={{
+              color: T.muted2, fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: 9, letterSpacing: "0.1em", textAlign: "left",
+              padding: "6px 10px", fontWeight: 600,
+            }}>
               {h}
             </th>
           ))}
@@ -275,41 +198,14 @@ function StationTable({ stations }) {
       </thead>
       <tbody>
         {stations.map((s, i) => (
-          <tr
-            key={s.id || i}
-            style={{ borderBottom: `1px solid ${T.borderSoft}` }}
-          >
-            <td
-              style={{
-                color: T.text,
-                padding: "7px 10px",
-                fontFamily: '"IBM Plex Mono", monospace',
-                fontSize: 11,
-              }}
-            >
-              {s.name}
-            </td>
-            <td style={{ color: T.muted, padding: "7px 10px", fontFamily: '"IBM Plex Mono", monospace', fontSize: 11 }}>
-              {s.source}
-            </td>
-            <td style={{ color: T.text, padding: "7px 10px", fontFamily: '"IBM Plex Mono", monospace', fontSize: 11 }}>
-              {s.distanceMiles} mi
-            </td>
+          <tr key={s.id || i} style={{ borderBottom: `1px solid ${T.borderSoft}` }}>
+            <td style={{ color: T.text, padding: "7px 10px", fontFamily: '"IBM Plex Mono", monospace', fontSize: 11 }}>{s.name}</td>
+            <td style={{ color: T.muted, padding: "7px 10px", fontFamily: '"IBM Plex Mono", monospace', fontSize: 11 }}>{s.source}</td>
+            <td style={{ color: T.text, padding: "7px 10px", fontFamily: '"IBM Plex Mono", monospace', fontSize: 11 }}>{s.distanceMiles} mi</td>
             <td style={{ padding: "7px 10px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div
-                  style={{
-                    height: 4,
-                    borderRadius: 2,
-                    background: T.blue,
-                    width: `${Math.max(s.contributionPct, 4)}%`,
-                    maxWidth: 80,
-                    opacity: 0.7,
-                  }}
-                />
-                <span style={{ color: T.muted, fontFamily: '"IBM Plex Mono", monospace', fontSize: 10 }}>
-                  {s.contributionPct}%
-                </span>
+                <div style={{ height: 4, borderRadius: 2, background: T.blue, width: `${Math.max(s.contributionPct, 4)}%`, maxWidth: 80, opacity: 0.7 }} />
+                <span style={{ color: T.muted, fontFamily: '"IBM Plex Mono", monospace', fontSize: 10 }}>{s.contributionPct}%</span>
               </div>
             </td>
           </tr>
@@ -320,364 +216,338 @@ function StationTable({ stations }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DISCLAIMER BLOCK
+// SHARED STYLE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-function DisclaimerBlock({ result, propertyAddress, claimDate }) {
+const sectionWrap = { marginBottom: 20 };
+
+const methodNote = {
+  background: "#0a0e18",
+  border: "1px solid #7a5500",
+  borderLeft: "4px solid #f0b432",
+  borderRadius: 6,
+  padding: "10px 14px",
+  color: "#7ea2df",
+  fontSize: 10,
+  lineHeight: 1.8,
+  fontFamily: "Inter, Arial, sans-serif",
+  marginTop: 10,
+};
+
+function SectionHeader({ label, citation }) {
   return (
-    <div
-      style={{
-        background: "#0a0e18",
-        border: `1px solid ${T.amberBorder}`,
-        borderLeft: `4px solid ${T.amber}`,
-        borderRadius: 6,
-        padding: "12px 16px",
-      }}
-    >
-      <div
-        style={{
-          color: T.amber,
-          fontSize: 9,
-          fontFamily: '"IBM Plex Mono", monospace',
-          letterSpacing: "0.12em",
-          marginBottom: 6,
-          fontWeight: 700,
-        }}
-      >
-        ⚠ MATHEMATICAL INTERPOLATION — NOT EMPIRICAL MEASUREMENT
+    <div style={{ marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${T.borderSoft}` }}>
+      <div style={{ color: T.muted2, fontSize: 9, letterSpacing: "0.15em", fontFamily: '"IBM Plex Mono", monospace', textTransform: "uppercase", fontWeight: 600 }}>
+        {label}
       </div>
-      <p
-        style={{
-          color: T.muted,
-          fontSize: 11,
-          margin: 0,
-          lineHeight: 1.8,
-          fontFamily: "Inter, Arial, sans-serif",
-        }}
-      >
-        Storm conditions for{" "}
-        <strong style={{ color: T.text }}>{propertyAddress}</strong> on{" "}
-        <strong style={{ color: T.text }}>{claimDate}</strong> are mathematical
-        estimates derived by IDW Spatial Interpolation (Shepard, 1968) across{" "}
-        <strong style={{ color: T.text }}>{result.stationCount}</strong> surrounding
-        weather stations. Nearest station:{" "}
-        <strong style={{ color: T.text }}>
-          {result.nearestStationName} ({result.nearestStationMiles} mi)
-        </strong>
-        . Confidence:{" "}
-        <strong style={{ color: T.text }}>{result.confidenceLabel}</strong> (
-        {(result.confidence * 100).toFixed(0)}%). IDW Spatial Interpolation v{result.methodVersion}. IDW is a standard peer-reviewed spatial interpolation method applied throughout operational meteorology and atmospheric science (Shepard, 1968).
-      </p>
+      <div style={{ color: T.muted2, fontSize: 9, fontFamily: '"IBM Plex Mono", monospace', fontStyle: "italic", marginTop: 2 }}>
+        {citation}
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN IDW PANEL COMPONENT (dark-themed)
+// SECTION 1 — NEXRAD HAIL ANALYSIS
+// Source: NWS WSR-88D · FMH-11 Part C §2.18
 // ─────────────────────────────────────────────────────────────────────────────
-export function IDWPanel({ idwResult, dateOfLoss, propertyAddress, mcds = [] }) {
-  if (!idwResult) return null;
+function NexradHailSection({ nexradHit, beamGeometry }) {
+  if (!nexradHit) {
+    return (
+      <div style={sectionWrap}>
+        <SectionHeader label="NEXRAD HAIL ANALYSIS" citation="NWS WSR-88D · FMH-11 Part C §2.18" />
+        <div style={{
+          background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8,
+          padding: "16px", color: T.muted, fontSize: 12, lineHeight: 1.8,
+          fontFamily: "Inter, Arial, sans-serif",
+        }}>
+          <span style={{ color: "#ff9c4d", marginRight: 8, fontWeight: 700 }}>◆ NULL RESULT</span>
+          No WSR-88D hail detection within search radius for this date of loss. This is a null result — not a zero probability statement. Absence of radar detection does not confirm absence of hail; beam geometry limitations may apply at extended range.
+        </div>
+      </div>
+    );
+  }
 
+  const posh = nexradHit.probSevere ?? null;
+  const poh  = nexradHit.probHail   ?? null;
+  const maxSizeAloft = parseFloat(nexradHit.maxSizeIn);
+
+  return (
+    <div style={sectionWrap}>
+      <SectionHeader label="NEXRAD HAIL ANALYSIS" citation="NWS WSR-88D · FMH-11 Part C §2.18" />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <MetricCard
+          label="Hail Probability (POSH)"
+          value={posh ?? "—"}
+          unit={posh != null ? "%" : ""}
+          sublabel='prob. severe hail ≥ 0.75" at surface'
+        />
+        <MetricCard
+          label="Hail Probability (POH)"
+          value={poh ?? "—"}
+          unit={poh != null ? "%" : ""}
+          sublabel="prob. any hail at surface"
+        />
+        <MetricCard
+          label="Max Size Aloft"
+          value={maxSizeAloft}
+          unit="in"
+          sublabel="WSR-88D HDA — not ground level"
+        />
+        <MetricCard
+          label="Detecting Radar"
+          value={nexradHit.radar ?? "—"}
+          unit=""
+          sublabel="NWS WSR-88D site"
+        />
+      </div>
+
+      {beamGeometry && (
+        <div style={{
+          background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8,
+          padding: "12px 16px", marginBottom: 12,
+          fontFamily: '"IBM Plex Mono", monospace',
+        }}>
+          <div style={{ color: T.muted2, fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>
+            BEAM GEOMETRY · FMH-11 PART C
+          </div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            {[
+              ["Radar Site",  beamGeometry.radarId],
+              ["Distance",    `${beamGeometry.distMi} mi`],
+              ["Beam Bottom", `${beamGeometry.beamBottom} ft AGL`],
+              ["Beam Center", `${beamGeometry.beamCenter} ft AGL`],
+              ["Beam Width",  `${beamGeometry.beamWidth} ft`],
+              ["Reliability", beamGeometry.reliability.toUpperCase()],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <div style={{ color: T.muted2, fontSize: 8, marginBottom: 3 }}>{k}</div>
+                <div style={{ color: k === "Reliability" ? beamGeometry.color : T.text, fontWeight: 700, fontSize: 11 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={methodNote}>
+        <span style={{ color: T.amber, fontWeight: 700 }}>◆ METHODOLOGY</span> · POSH and POH values are NWS operational products derived from the WSR-88D Hail Detection Algorithm (HDA). POSH represents the probability of severe hail (≥0.75") at the surface, accounting for reflectivity thresholds and freezing level height. POH represents probability of any hail occurrence. These are published NWS products derived from nationally calibrated algorithms — not proprietary estimates. Per FMH-11 Part C §2.18. Max size represents detection aloft; surface size is estimated below via Knight (1981).
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 2 — EST. SURFACE HAIL SIZE
+// Source: Knight (1981) NCAR Hail Melting Chart · U. of Wyoming Radiosonde
+// ─────────────────────────────────────────────────────────────────────────────
+function SurfaceHailSection({ nexradHit, freezeLevelFt }) {
+  if (!nexradHit || !freezeLevelFt) return null;
+  const aloftSize   = parseFloat(nexradHit.maxSizeIn);
+  const surfaceSize = meltingChartEstimate(aloftSize, freezeLevelFt);
+  if (surfaceSize == null) return null;
+
+  return (
+    <div style={sectionWrap}>
+      <SectionHeader
+        label="EST. SURFACE HAIL SIZE"
+        citation="Knight (1981) NCAR Hail Melting Chart · U. of Wyoming Radiosonde Archive"
+      />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <MetricCard label="Radar Size (Aloft)"   value={aloftSize}                    unit="in"  sublabel="WSR-88D HDA detection" />
+        <MetricCard label="Freezing Level"        value={freezeLevelFt?.toLocaleString()} unit="ft"  sublabel="radiosonde 0°C interpolation" />
+        <MetricCard label="Est. Surface Size"     value={surfaceSize}                  unit="in"  sublabel="after melting descent" />
+      </div>
+      <div style={methodNote}>
+        <span style={{ color: T.amber, fontWeight: 700 }}>◆ METHODOLOGY</span> · Surface hail size estimated using exponential decay model: surfaceSize = aloftSize × e^(−k × freezeLevelFt), where k = 0.000055, per Knight (1981) empirical regression from NCAR hail melting data. Freezing level derived from University of Wyoming upper-air sounding archive, interpolated linearly to 0°C isotherm. This estimate represents expected hail size at ground level after thermal descent through the warm layer below the freezing level. Actual surface size may vary with local atmospheric conditions.
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 3 — WIND INTERPOLATION
+// Source: IDW Haversine (Shepard, 1968) · ASOS / Visual Crossing
+// ─────────────────────────────────────────────────────────────────────────────
+function WindInterpolationSection({ idwResult }) {
+  if (!idwResult) return null;
   const r = idwResult;
 
   return (
-    <div
-      style={{
-        background: T.panel,
-        border: `1px solid ${T.border}`,
-        borderRadius: 12,
-        padding: 20,
-        marginTop: 0,
-      }}
-    >
-      {/* Header row */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 16,
-          paddingBottom: 14,
-          borderBottom: `1px solid ${T.borderSoft}`,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              color: T.muted2,
-              fontSize: 9,
-              letterSpacing: "0.15em",
-              fontFamily: '"IBM Plex Mono", monospace',
-              marginBottom: 4,
-            }}
-          >
-            STORM DATA MODULE · IDW INTERPOLATION ENGINE v{r.methodVersion}
-          </div>
-          <div
-            style={{
-              color: T.text,
-              fontWeight: 700,
-              fontSize: 15,
-            }}
-          >
-            Date-of-Loss Storm Estimate
-          </div>
-          <div style={{ color: T.muted, fontSize: 12, marginTop: 2 }}>
-            {propertyAddress} · {dateOfLoss}
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div
-            style={{
-              color: T.muted2,
-              fontSize: 9,
-              letterSpacing: "0.1em",
-              fontFamily: '"IBM Plex Mono", monospace',
-              marginBottom: 6,
-            }}
-          >
-            INTERPOLATION CONFIDENCE
-          </div>
-          <ConfidenceBadge label={r.confidenceLabel} />
-          <div style={{ color: T.muted2, fontSize: 9, marginTop: 5, fontFamily: '"IBM Plex Mono", monospace' }}>
-            {r.stationCount} stations · nearest {r.nearestStationMiles} mi
-          </div>
-          <div style={{ color: T.muted2, fontSize: 8, marginTop: 4, fontFamily: '"IBM Plex Mono", monospace', lineHeight: 1.6, textAlign:"right" }}>
-            HIGH: &lt;5 mi · 5+ stations{"\n"}
-            MODERATE: 5–20 mi · 3+ stations{"\n"}
-            LOW: &gt;20 mi or &lt;3 stations{"\n"}
-            <span style={{ opacity: 0.7, fontStyle: "italic" }}>Tiers are qualitative indicators based on IDW validation literature (Shepard, 1968; Dirks et al., 1998), not frequentist probability statements.</span>
-          </div>
-          {r.nexradBoost && (
-            <div style={{
-              marginTop: 6,
-              color: "#4caf50",
-              fontSize: 9,
-              fontFamily: '"IBM Plex Mono", monospace',
-              lineHeight: 1.6,
-              maxWidth: 400,
-              textAlign: "right",
-            }}>
-              ▲ {r.nexradBoost.note}
-            </div>
-          )}
-        </div>
+    <div style={sectionWrap}>
+      <SectionHeader
+        label="WIND INTERPOLATION"
+        citation="IDW Spatial Interpolation (Shepard, 1968) · ASOS / Visual Crossing"
+      />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <MetricCard label="Wind Speed"       value={r.windSpeedMph}           unit="mph" sublabel="sustained" />
+        <MetricCard label="Wind Gust"        value={r.windGustMph}            unit="mph" sublabel="peak gust" />
+        <MetricCard label="Station Count"    value={r.stationCount}           unit=""    sublabel="contributing ASOS" />
+        <MetricCard label="Nearest Station"  value={`${r.nearestStationMiles} mi`} unit="" sublabel={r.nearestStationName} />
       </div>
 
-      {/* Metric cards */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        <MetricCard
-          label="Hail Size Aloft (Radar)"
-          value={r.hailSizeIn}
-          unit="in"
-          sublabel="NEXRAD HDA — not ground level"
-        />
-        {r.surfaceHailSizeIn != null && (
-          <MetricCard
-            label="Est. Surface Hail Size"
-            value={r.surfaceHailSizeIn}
-            unit="in"
-            sublabel={`melting chart · FL ${r.freezeLevelFt?.toLocaleString()} ft`}
-          />
-        )}
-        <MetricCard
-          label="Hail Probability"
-          value={r.nexradBoost ? r.nexradBoost.probSevere ?? r.hailProbability : r.hailProbability}
-          unit="%"
-          sublabel={r.nexradBoost ? "NEXRAD POSH (radar-derived)" : "interpolated"}
-        />
-        <MetricCard
-          label="Wind Speed"
-          value={r.windSpeedMph}
-          unit="mph"
-          sublabel="sustained"
-        />
-        <MetricCard
-          label="Wind Gust"
-          value={r.windGustMph}
-          unit="mph"
-          sublabel="peak gust"
-        />
-      </div>
-
-      {/* Confidence bar */}
-      <div style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 5,
-          }}
-        >
-          <span
-            style={{
-              color: T.muted2,
-              fontSize: 9,
-              letterSpacing: "0.1em",
-              fontFamily: '"IBM Plex Mono", monospace',
-            }}
-          >
-            CONFIDENCE SCORE
-          </span>
-          <span
-            style={{
-              color: T.blueBright,
-              fontSize: 10,
-              fontFamily: '"IBM Plex Mono", monospace',
-            }}
-          >
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: T.muted2, fontSize: 9, letterSpacing: "0.1em", fontFamily: '"IBM Plex Mono", monospace' }}>
+              IDW CONFIDENCE
+            </span>
+            <ConfidenceBadge label={r.confidenceLabel} />
+          </div>
+          <span style={{ color: T.blueBright, fontSize: 10, fontFamily: '"IBM Plex Mono", monospace' }}>
             {(r.confidence * 100).toFixed(0)}%
           </span>
         </div>
-        <div
-          style={{
-            height: 6,
-            background: T.borderSoft,
-            borderRadius: 3,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              borderRadius: 3,
-              width: `${(r.confidence * 100).toFixed(0)}%`,
-              background:
-                r.confidence >= 0.75
-                  ? T.green
-                  : r.confidence >= 0.55
-                  ? T.amber
-                  : T.red,
-              transition: "width 0.6s ease",
-            }}
-          />
+        <div style={{ height: 6, background: T.borderSoft, borderRadius: 3, overflow: "hidden" }}>
+          <div style={{
+            height: "100%", borderRadius: 3,
+            width: `${(r.confidence * 100).toFixed(0)}%`,
+            background: r.confidence >= 0.75 ? T.green : r.confidence >= 0.55 ? T.amber : T.red,
+            transition: "width 0.6s ease",
+          }} />
+        </div>
+        <div style={{ color: T.muted2, fontSize: 8, marginTop: 4, fontFamily: '"IBM Plex Mono", monospace', fontStyle: "italic" }}>
+          Tiers are qualitative indicators per IDW validation literature (Shepard, 1968; Dirks et al., 1998) — not frequentist probability statements.
         </div>
       </div>
 
-      {/* Disclaimer */}
-      <DisclaimerBlock
-        result={r}
-        propertyAddress={propertyAddress}
-        claimDate={dateOfLoss}
-      />
-
-      {/* Methodology & Station Data — always visible */}
-      <div
-        style={{
-          background: T.bg,
-          border: `1px solid ${T.border}`,
-          borderRadius: 8,
-          padding: 16,
-          marginTop: 14,
-        }}
-      >
-        <div
-          style={{
-            color: T.muted2,
-            fontSize: 9,
-            letterSpacing: "0.1em",
-            fontFamily: '"IBM Plex Mono", monospace',
-            marginBottom: 10,
-            fontWeight: 600,
-          }}
-        >
-          STATIONS CONTRIBUTING TO THIS ESTIMATE
+      <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: 16, marginBottom: 10 }}>
+        <div style={{ color: T.muted2, fontSize: 9, letterSpacing: "0.1em", fontFamily: '"IBM Plex Mono", monospace', marginBottom: 10, fontWeight: 600 }}>
+          STATIONS CONTRIBUTING TO WIND ESTIMATE
         </div>
         <StationTable stations={r.stationsUsed} />
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 10,
-            marginTop: 14,
-            paddingTop: 14,
-            borderTop: `1px solid ${T.borderSoft}`,
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.borderSoft}` }}>
           {[
-            ["Method", r.method],
-            ["Version", r.methodVersion],
-            ["Computed (UTC)", new Date(r.computedAt).toUTCString()],
-            ["Station Count", r.stationCount],
+            ["Method",          r.method],
+            ["Version",         r.methodVersion],
+            ["Computed (UTC)",  new Date(r.computedAt).toUTCString()],
+            ["Station Count",   r.stationCount],
             ["Nearest Station", `${r.nearestStationName} (${r.nearestStationMiles} mi)`],
-            ["Raw Confidence", `${(r.confidence * 100).toFixed(1)}%`],
+            ["Raw Confidence",  `${(r.confidence * 100).toFixed(1)}%`],
           ].map(([k, v]) => (
             <div key={k}>
-              <div
-                style={{
-                  color: T.muted2,
-                  fontSize: 9,
-                  letterSpacing: "0.1em",
-                  fontFamily: '"IBM Plex Mono", monospace',
-                  marginBottom: 3,
-                }}
-              >
-                {k}
-              </div>
-              <div
-                style={{
-                  color: T.muted,
-                  fontSize: 10,
-                  fontFamily: '"IBM Plex Mono", monospace',
-                }}
-              >
-                {v}
-              </div>
+              <div style={{ color: T.muted2, fontSize: 9, letterSpacing: "0.1em", fontFamily: '"IBM Plex Mono", monospace', marginBottom: 3 }}>{k}</div>
+              <div style={{ color: T.muted, fontSize: 10, fontFamily: '"IBM Plex Mono", monospace' }}>{v}</div>
             </div>
           ))}
         </div>
-      {mcds && mcds.length > 0 && (
-        <div style={{
-          marginTop: 20,
-          paddingTop: 16,
-          borderTop: `1px solid ${T.borderSoft}`,
-        }}>
-          <div style={{
-            color: T.muted2,
-            fontSize: 9,
-            letterSpacing: "0.15em",
-            fontFamily: '"IBM Plex Mono", monospace',
-            textTransform: "uppercase",
-            marginBottom: 10,
-          }}>
-            Mesoscale Discussions — Date of Loss
-          </div>
-          {mcds.map((mcd, i) => (
-            <div key={i} style={{
-              marginBottom: 8,
-              paddingBottom: 8,
-              borderBottom: i < mcds.length - 1 ? `1px solid ${T.borderSoft}` : "none",
-            }}>
-              <div style={{
-                color: T.blueBright,
-                fontSize: 11,
-                fontFamily: '"IBM Plex Mono", monospace',
-                fontWeight: 700,
-                marginBottom: 2,
-              }}>
-                MCD #{String(mcd.number).padStart(4, '0')} · {new Date(mcd.issued).toUTCString().slice(0, 22)} UTC
-              </div>
-              <div style={{
-                color: T.muted,
-                fontSize: 10,
-                fontFamily: '"IBM Plex Mono", monospace',
-                marginBottom: 3,
-              }}>
-                {mcd.concerning || "Severe weather threat identified"}
-              </div>
-              <div style={{
-                color: T.blue,
-                fontSize: 10,
-                fontFamily: '"IBM Plex Mono", monospace',
-              }}>
-                ↗ {mcd.url}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
+
+      <div style={methodNote}>
+        <span style={{ color: T.amber, fontWeight: 700 }}>◆ METHODOLOGY</span> · Wind speed and gust derived by IDW Spatial Interpolation (Shepard, 1968) across {r.stationCount} ASOS surface stations. Station weights = 1/d² (Haversine distance). ASOS instrumentation does not detect hail occurrence and is not used for hail probability — hail probability is derived exclusively from NEXRAD POSH per FMH-11 Part C §2.18. Confidence score reflects station proximity and wind data consistency only. Visual Crossing / ASOS observations are federally quality-controlled using range, temporal consistency, and neighbor comparison checks per ASOS standards (Dirks et al., 1998).
       </div>
     </div>
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 4 — CORROBORATION SUMMARY
+// Source: NOAA Storm Events Database · IEM LSR · NEXRAD SWDI
+// ─────────────────────────────────────────────────────────────────────────────
+function CorroborationSection({ nexradHit, corroboration, dateOfLoss }) {
+  const lines = [];
+
+  if (corroboration?.stormEventsHailCount > 0) {
+    lines.push({ icon: "✓", color: T.green,  text: `${corroboration.stormEventsHailCount} NOAA Storm Events Database hail record(s) confirmed for this county on ${dateOfLoss}.` });
+  } else {
+    lines.push({ icon: "○", color: T.muted2, text: `No NOAA Storm Events Database hail records for this county on ${dateOfLoss}.` });
+  }
+
+  if (corroboration?.lsrCount > 0) {
+    lines.push({ icon: "✓", color: T.green,  text: `${corroboration.lsrCount} IEM Local Storm Report(s) from trained spotters within 25 miles on date of loss.` });
+  } else {
+    lines.push({ icon: "○", color: T.muted2, text: `No IEM Local Storm Reports within 25 miles on date of loss.` });
+  }
+
+  if (nexradHit) {
+    lines.push({ icon: "✓", color: T.green,  text: `NEXRAD WSR-88D (${nexradHit.radar || "site unknown"}) independently detected ${nexradHit.maxSizeIn}" hail aloft on date of loss — providing independent radar corroboration per FMH-11 Part C §2.18.` });
+  } else {
+    lines.push({ icon: "◯", color: "#ff9c4d", text: `No NEXRAD WSR-88D detection within search radius on date of loss. Null result — does not confirm absence of hail; beam geometry limitations may apply at extended range.` });
+  }
+
+  return (
+    <div style={sectionWrap}>
+      <SectionHeader label="CORROBORATION SUMMARY" citation="NOAA Storm Events Database · IEM LSR · NEXRAD SWDI" />
+      <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px" }}>
+        {lines.map((line, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "flex-start", gap: 10,
+            paddingBottom: i < lines.length - 1 ? 10 : 0,
+            marginBottom:  i < lines.length - 1 ? 10 : 0,
+            borderBottom:  i < lines.length - 1 ? `1px solid ${T.borderSoft}` : "none",
+          }}>
+            <span style={{ color: line.color, fontWeight: 700, fontSize: 14, lineHeight: 1.4, flexShrink: 0 }}>{line.icon}</span>
+            <span style={{ color: T.muted, fontSize: 12, lineHeight: 1.8, fontFamily: "Inter, Arial, sans-serif" }}>{line.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION 5 — SPC MESOSCALE DISCUSSIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function MCDSection({ mcds }) {
+  if (!mcds || mcds.length === 0) return null;
+  return (
+    <div style={sectionWrap}>
+      <SectionHeader label="MESOSCALE DISCUSSIONS — DATE OF LOSS" citation="NOAA Storm Prediction Center" />
+      <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px" }}>
+        {mcds.map((mcd, i) => (
+          <div key={i} style={{
+            marginBottom: i < mcds.length - 1 ? 12 : 0,
+            paddingBottom: i < mcds.length - 1 ? 12 : 0,
+            borderBottom: i < mcds.length - 1 ? `1px solid ${T.borderSoft}` : "none",
+          }}>
+            <div style={{ color: T.blueBright, fontSize: 11, fontFamily: '"IBM Plex Mono", monospace', fontWeight: 700, marginBottom: 2 }}>
+              MCD #{String(mcd.number).padStart(4, "0")} · {new Date(mcd.issued).toUTCString().slice(0, 22)} UTC
+            </div>
+            <div style={{ color: T.muted, fontSize: 10, fontFamily: '"IBM Plex Mono", monospace', marginBottom: 3 }}>
+              {mcd.concerning || "Severe weather threat identified"}
+            </div>
+            <div style={{ color: T.blue, fontSize: 10, fontFamily: '"IBM Plex Mono", monospace' }}>
+              ↗ {mcd.url}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN EXPORT — DOLStormPanel
+// Replaces IDWPanel. IDWPanel alias preserved so App.jsx import is unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+export function DOLStormPanel({
+  idwResult,
+  nexradHit,
+  beamGeometry,
+  freezeLevelFt,
+  corroboration,
+  dateOfLoss,
+  propertyAddress,
+  mcds = [],
+}) {
+  return (
+    <div style={{
+      background: T.panel, border: `1px solid ${T.border}`,
+      borderRadius: 12, padding: 20, marginTop: 0,
+    }}>
+      <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: `1px solid ${T.borderSoft}` }}>
+        <div style={{ color: T.muted2, fontSize: 9, letterSpacing: "0.15em", fontFamily: '"IBM Plex Mono", monospace', marginBottom: 4 }}>
+          STORM DATA MODULE · MULTI-SOURCE DOL ANALYSIS v2.0
+        </div>
+        <div style={{ color: T.text, fontWeight: 700, fontSize: 15 }}>Date-of-Loss Storm Analysis</div>
+        <div style={{ color: T.muted, fontSize: 12, marginTop: 2 }}>{propertyAddress} · {dateOfLoss}</div>
+      </div>
+
+      <NexradHailSection  nexradHit={nexradHit}  beamGeometry={beamGeometry} />
+      <SurfaceHailSection nexradHit={nexradHit}  freezeLevelFt={freezeLevelFt} />
+      <WindInterpolationSection idwResult={idwResult} />
+      <CorroborationSection nexradHit={nexradHit} corroboration={corroboration} dateOfLoss={dateOfLoss} />
+      <MCDSection mcds={mcds} />
+    </div>
+  );
+}
+
+export { DOLStormPanel as IDWPanel };
