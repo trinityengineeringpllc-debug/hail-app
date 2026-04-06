@@ -2613,8 +2613,14 @@ PROPERTY: ${address}
 COUNTY: ${stormEventsData?.county || noaaData?.county}, ${stormEventsData?.state || noaaData?.state}
 COORDINATES: ${lat}, ${lon}
 DATE OF LOSS: ${dateOfLoss || "Not provided"}
-NEXRAD DOL HIT: ${dolNexradHit ? `WSR-88D site ${dolNexradHit.radar} detected ${dolNexradHit.maxSizeIn}" hail aloft on date of loss. POH: ${dolNexradHit.probHail ?? "N/A"}%, POSH: ${dolNexradHit.probSevere ?? "N/A"}%. This MUST be referenced in your summary.` : "No NEXRAD detection on date of loss."}
-
+NEXRAD DOL HIT: ${(() => {
+  if (!dateOfLoss) return "No date of loss provided.";
+  const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmt = `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}`;
+  const hit = (nexradData?.hits || []).find(h => h.date === fmt);
+  return hit ? `WSR-88D site ${hit.radar} detected ${hit.maxSizeIn}" hail aloft on date of loss. POH: ${hit.probHail ?? "N/A"}%, POSH: ${hit.probSevere ?? "N/A"}%. This MUST be referenced in your summary.` : "No NEXRAD detection on date of loss.";
+})()}
 YOUR ONLY TASKS:
 1. Write a 2-3 sentence forensic weather summary. If DATE OF LOSS is provided, the summary MUST reference wind and precipitation conditions from ASOS stations only. Do NOT assess hail probability from ASOS data — ASOS does not detect hail. If NEXRAD data is provided in the structured data below and it matches the date of loss, reference it explicitly by radar site and detection magnitude (e.g. "WSR-88D radar site KOHX independently detected 3.75 inch hail aloft on the date of loss per FMH-11 Part C"). If no NEXRAD data is provided for the date of loss, do not mention hail probability at all.
 2. Format the Visual Crossing stations below into the stations array for IDW interpolation
