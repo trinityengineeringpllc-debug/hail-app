@@ -792,7 +792,7 @@ const FIRST_PAGE_CONTENT_HEIGHT = PAGE_H - 92 - 18 - 18;
 const CONT_PAGE_CONTENT_HEIGHT = PAGE_H - 20 - 18;
 const SECTION_GAP = 18;
 const EMPTY_TABLE_BODY_HEIGHT = 62;
-const FOOTER_EXTRA_GAP = 20;
+const FOOTER_EXTRA_GAP = 100;
 
 function ensureFonts() {
   if (!document.getElementById("swi-fonts")) {
