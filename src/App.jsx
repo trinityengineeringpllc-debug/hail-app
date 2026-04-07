@@ -2210,7 +2210,7 @@ function ReportPage({ page, data, address, preview = false }) {
       })}
 
       {/* Footer: only in PDF-capture mode, not in on-screen preview */}
-      {!preview ? <TrinityFooter /> : null}
+      {page.showFooter && !preview ? <TrinityFooter /> : null}
       {/* In preview, render footer inline so it flows naturally after content */}
       {page.showFooter && preview ? (
         <div style={{ textAlign: "center", padding: "24px 0 18px" }}>
