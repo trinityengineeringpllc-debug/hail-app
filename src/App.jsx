@@ -3202,9 +3202,9 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
               {row.nexradCorroboration.probSevere != null && ` · POSH: ${row.nexradCorroboration.probSevere}%`}
             </div>
           )}
-          {row.nexradCorroboration.radar && (
+            {row.nexradCorroboration.radar && (
             <div style={{ marginTop: 2, fontSize: 9 }}>
-              {`${row.nexradCorroboration.radar} · beam geometry`}
+              {`${row.nexradCorroboration.radar} · ${getBeamGeometry(parseFloat(normalized?.location?.lat || 0), parseFloat(normalized?.location?.lon || 0), row.nexradCorroboration.radar)?.distMi} mi · beam bottom ${getBeamGeometry(parseFloat(normalized?.location?.lat || 0), parseFloat(normalized?.location?.lon || 0), row.nexradCorroboration.radar)?.beamBottom} ft · beam center ${getBeamGeometry(parseFloat(normalized?.location?.lat || 0), parseFloat(normalized?.location?.lon || 0), row.nexradCorroboration.radar)?.beamCenter} ft · beam width ${getBeamGeometry(parseFloat(normalized?.location?.lat || 0), parseFloat(normalized?.location?.lon || 0), row.nexradCorroboration.radar)?.beamWidth} ft · per FMH-11 Part B beam geometry`}
             </div>
           )}
         </div>
