@@ -703,14 +703,69 @@ return (
               );
             });
           })()}
-
           {classifiedHits.length === 0 && (
             <div style={{ color:"#4d6797", fontSize:10, marginTop:20, textAlign:"center" }}>
               No NEXRAD detections in this period
             </div>
           )}
-
-          {inspWithDist.length > 0 && (
+          {(() => {
+            const parseInspDate = (str) => {
+              if (!str) return null;
+              const d = new Date(str);
+              return isNaN(d) ? null : d;
+            };
+            const inspWithDist = inspections.map(insp => {
+              const dLat = ((insp.lat - propLat) * Math.PI) / 180;
+              const dLon = ((insp.lon - propLon) * Math.PI) / 180;
+              const a = Math.sin(dLat/2)**2 + Math.cos(propLat*Math.PI/180)*Math.cos(insp.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+              const dist = 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              const inspDate = parseInspDate(insp.inspectionDate);
+              const category = !inspDate ? "unknown"
+                : inspDate <= dolDateObj ? "before" : "after";
+              return { ...insp, distMi: dist, category, inspDate };
+            }).filter(i => i.distMi <= 50);
+            if (inspWithDist.length === 0) return null;
+            const bands = [
+              { label: "< 5 mi", min:0, max:5, color:"#4caf50" },
+              { label: "< 10 mi", min:5, max:10, color:"#8ef49c" },
+              { label: "< 15 mi", min:10, max:15, color:"#ffb04d" },
+              { label: "> 15 mi", min:15, max:999, color:"#4d6797" },
+            ];
+            return (
+          <div style={{ marginTop:12, paddingTop:10, borderTop:"1px solid #102240" }}>
+              <div style={{ color:"#76a8ff", fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>
+                PE-Verified Inspections · {inspWithDist.length} within 50 mi
+              </div>
+              {bands.map(band => {
+                const bandInsp = inspWithDist
+                  .filter(i => i.distMi >= band.min && i.distMi < band.max)
+                  .sort((a,b) => (b.inspDate || 0) - (a.inspDate || 0));
+                if (bandInsp.length === 0) return null;
+                return (
+                  <div key={`insp-${band.label}`} style={{ marginBottom:8 }}>
+                    <div style={{ color:band.color, fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", borderBottom:"1px solid #102240", paddingBottom:3, marginBottom:4 }}>
+                      {band.label} · {bandInsp.length} inspection{bandInsp.length !== 1 ? "s" : ""}
+                    </div>
+                    {bandInsp.map((insp, i) => (
+                      <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3, paddingBottom:3, borderBottom:"1px solid #050b14" }}>
+                        <div>
+                          <span style={{ color: insp.category === "before" ? "#76a8ff" : "#8db7ff", fontSize:7, marginRight:4 }}>
+                            [{insp.category === "before" ? "Prior" : insp.category === "after" ? "Post" : "—"}]
+                          </span>
+                          <span style={{ color:"#7ea2df" }}>{insp.inspectionDate || "—"}</span>
+                        </div>
+                        <div style={{ display:"flex", gap:8, color:"#4d6797" }}>
+                          {insp.hailSizeIn != null && <span style={{ color:"#76a8ff" }}>{insp.hailSizeIn}"</span>}
+                          <span>{insp.distMi.toFixed(1)} mi</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+            );
+          })()}
             <div style={{ marginTop:12, paddingTop:10, borderTop:"1px solid #102240" }}>
               <div style={{ color:"#76a8ff", fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>
                 PE-Verified Inspections · {inspWithDist.length} within 50 mi
