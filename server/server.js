@@ -617,6 +617,103 @@ app.get("/api/freezinglevel", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+// ─── Trinity Engineering Hail Map Inspections (auth-protected) ───────────────
+app.get("/api/hailmap", requireAuth, async (req, res) => {
+  const { lat, lon } = req.query;
+  if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
+
+  try {
+    const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+        client_id: process.env.ZOHO_CLIENT_ID,
+        client_secret: process.env.ZOHO_CLIENT_SECRET,
+        grant_type: "refresh_token",
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    if (!accessToken) throw new Error("Failed to get Zoho access token");
+
+    // Paginate all inspection records
+    let allRecords = [];
+    let page = 1;
+    const pageSize = 200;
+    let hasMore = true;
+
+    while (hasMore) {
+      const zohoRes = await fetch(
+        `https://creator.zoho.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
+        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+      );
+      const zohoData = await zohoRes.json();
+      const records = zohoData?.data || [];
+      allRecords.push(...records);
+      if (records.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    }
+
+    // Helper — parse fraction strings to decimal inches
+    function parseFraction(str) {
+      if (!str || str === "" || str.toLowerCase().includes("no")) return null;
+      const clean = str.replace(/inch.*$/i, "").trim();
+      if (clean.includes("/")) {
+        const parts = clean.split(" ");
+        let total = 0;
+        for (const p of parts) {
+          if (p.includes("/")) {
+            const [num, den] = p.split("/").map(Number);
+            total += num / den;
+          } else {
+            total += parseFloat(p) || 0;
+          }
+        }
+        return parseFloat(total.toFixed(3));
+      }
+      return parseFloat(clean) || null;
+    }
+
+    // Filter to 0.5° bbox and return only non-PII fields
+    const propLat = parseFloat(lat);
+    const propLon = parseFloat(lon);
+    const latMin = propLat - 0.5;
+    const latMax = propLat + 0.5;
+    const lonMin = propLon - 0.5;
+    const lonMax = propLon + 0.5;
+
+    const inspections = allRecords
+      .filter(r => {
+        const rLat = parseFloat(r.lat);
+        const rLon = parseFloat(r.lon);
+        return rLat >= latMin && rLat <= latMax && rLon >= lonMin && rLon <= lonMax;
+      })
+      .map(r => {
+        const dents = parseFraction(r.Hail_Dents_Diameter);
+        const spatter = parseFraction(r.Hail_Spatter_Diameter);
+        const hailSize = (dents != null && spatter != null)
+          ? Math.max(dents, spatter)
+          : (dents ?? spatter ?? null);
+        return {
+          lat: parseFloat(r.lat),
+          lon: parseFloat(r.lon),
+          hailSizeIn: hailSize,
+          dentsSizeIn: dents,
+          spatterSizeIn: spatter,
+          inspectionDate: r.Appointment_Start || null,
+        };
+      })
+      .filter(r => r.lat && r.lon);
+
+    res.json({ count: inspections.length, inspections });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
