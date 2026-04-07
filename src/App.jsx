@@ -907,14 +907,20 @@ function buildMeasuredPages(data, metrics) {
     const capacity = showTopHeader ? FIRST_PAGE_CONTENT_HEIGHT : CONT_PAGE_CONTENT_HEIGHT;
     const introHeight = showIntro ? metrics.introHeight : 0;
 
+      function createPage({ showTopHeader = false, showIntro = false } = {}) {
+    const capacity = showTopHeader ? FIRST_PAGE_CONTENT_HEIGHT : CONT_PAGE_CONTENT_HEIGHT;
+    const introHeight = showIntro ? metrics.introHeight : 0;
+    const footerReserve = metrics.footerHeight + FOOTER_EXTRA_GAP;
+
     return {
       showTopHeader,
       showIntro,
       sections: [],
       showFooter: false,
-      remaining: capacity - introHeight,
+      remaining: capacity - introHeight - footerReserve,
     };
   }
+
 
   function pushNewPage(opts = {}) {
     const page = createPage(opts);
