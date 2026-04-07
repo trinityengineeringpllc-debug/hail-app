@@ -1778,7 +1778,7 @@ function PdfPageShell({ children, showTopHeader = false, preview = false }) {
               <img
                 src="/trinity-logo.png"
                 alt="Trinity Engineering"
-                style={{ height: 36, width: "auto", objectFit: "contain" }}
+                style={{ height: 48, width: "auto", objectFit: "contain" }}
               />
             </div>
             <div
