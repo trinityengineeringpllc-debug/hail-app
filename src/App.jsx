@@ -903,10 +903,6 @@ function buildMeasuredPages(data, metrics) {
 
   const pages = [];
 
-  function createPage({ showTopHeader = false, showIntro = false } = {}) {
-    const capacity = showTopHeader ? FIRST_PAGE_CONTENT_HEIGHT : CONT_PAGE_CONTENT_HEIGHT;
-    const introHeight = showIntro ? metrics.introHeight : 0;
-
       function createPage({ showTopHeader = false, showIntro = false } = {}) {
     const capacity = showTopHeader ? FIRST_PAGE_CONTENT_HEIGHT : CONT_PAGE_CONTENT_HEIGHT;
     const introHeight = showIntro ? metrics.introHeight : 0;
