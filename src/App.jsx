@@ -2287,6 +2287,7 @@ export default function App() {
   const [pages, setPages] = useState([]);
   const [layoutReady, setLayoutReady] = useState(false);
   const [nexradHits, setNexradHits] = useState([]);
+  const [hailMapInspections, setHailMapInspections] = useState([]);
   const mapPageRef = useRef(null);
   const dolMapPdfRef = useRef(null);
 
@@ -2460,6 +2461,7 @@ async function handleLookup() {
   setFreezeLevelFt(null);
   setCorroboration(null);
   setNexradHits([]);
+  setHailMapInspections([]);
 
   try {
     const storedToken = localStorage.getItem("hail_token");
@@ -2498,7 +2500,7 @@ No prose. No markdown. Just the JSON.`,
     const endDate = `${currentYear}-12-31`;
 
     // ── Step 2: Fetch all three data sources in parallel ─────────────────────
-const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freezingLevelRes] = await Promise.all([
+const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freezingLevelRes, hailMapRes] = await Promise.all([
   fetch(
         `${API}/api/noaa/events?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include", headers: authHeaders }
@@ -2532,9 +2534,13 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freez
             `${API}/api/freezinglevel?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
             { credentials: "include", headers: authHeaders }
           )
-        : Promise.resolve(null),    ]);
+        : Promise.resolve(null),
+      fetch(
+        `${API}/api/hailmap?lat=${lat}&lon=${lon}`,
+        { credentials: "include", headers: authHeaders }
+      ),    ]);
   
-const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData, freezingLevelData] = await Promise.all([
+const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData, freezingLevelData, hailMapData] = await Promise.all([
       noaaRes.json(),
       lsrRes.json(),
       stationsRes ? stationsRes.json() : null,
@@ -2542,6 +2548,7 @@ const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData,
       nexradRes.json().catch((e) => { console.log('NEXRAD parse error:', e); return { hits: [] }; }),
       spcmcdRes ? spcmcdRes.json().catch(() => ({ mcds: [] })) : Promise.resolve({ mcds: [] }),
       freezingLevelRes ? freezingLevelRes.json().catch(() => ({ freezeLevelFt: null })) : Promise.resolve({ freezeLevelFt: null }),
+      hailMapRes ? hailMapRes.json().catch(() => ({ inspections: [] })) : Promise.resolve({ inspections: [] }),
     ]);
 
     // — NEXRAD corroboration index ————————————————————————————
@@ -2763,6 +2770,7 @@ if (nexradCorroboratedCount > 0) {
     }
     parsed.mcds = spcmcdData?.mcds || [];
     setNexradHits(nexradData?.hits || []);
+    setHailMapInspections(hailMapData?.inspections || []);
     setResult(parsed);
     // ── Step 6: Run IDW if date of loss and stations returned ─────────────────
     
