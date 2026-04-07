@@ -151,7 +151,7 @@ const STATE_FIPS = {
 };
 
 // ── NEXRAD Hail Map Page ──────────────────────────────────────────────────────
-function HailMapPage({ data, nexradHits = [], preview = false }) {
+function HailMapPage({ data, nexradHits = [], inspections = [], preview = false }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
 
@@ -281,6 +281,19 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
               .text("25 mi");
           }
 
+          // Trinity Engineering PE-Verified inspection pins — blue triangles
+        inspections.forEach(insp => {
+          if (!insp.lat || !insp.lon) return;
+          const coords = projection([insp.lon, insp.lat]);
+          if (!coords) return;
+          const [x, y] = coords;
+          const s = 6;
+          svg.append("polygon")
+            .attr("points", `${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
+            .attr("fill", "rgba(118,168,255,0.7)")
+            .attr("stroke", "#76a8ff")
+            .attr("stroke-width", 1);
+        });
           // Property pin
           svg.append("circle").attr("cx",px).attr("cy",py).attr("r",20)
             .attr("fill","rgba(118,168,255,0.1)").attr("stroke","rgba(118,168,255,0.25)").attr("stroke-width",1);
@@ -324,6 +337,10 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
             <div style={{ width:0, height:0, borderLeft:"5px solid transparent", borderRight:"5px solid transparent", borderBottom:"9px solid #ffb04d" }} />
             WSR-88D Radar
           </div>
+          <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+            <div style={{ width:0, height:0, borderLeft:"5px solid transparent", borderRight:"5px solid transparent", borderBottom:"9px solid #76a8ff" }} />
+            PE-Verified Inspection
+          </div>
         </div>
       </div>
 
@@ -348,7 +365,7 @@ function HailMapPage({ data, nexradHits = [], preview = false }) {
   );
 }
 // ── DOL NEXRAD Map (recent hail history, date-colored) ───────────────────────
-function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null }) {
+function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null, inspections = [] }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
 
@@ -515,6 +532,24 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, fre
             .attr("font-family",'"IBM Plex Mono", monospace').text(radarId);
         });
 
+        // Trinity PE-Verified inspection pins — blue triangles
+        inspections.forEach(insp => {
+          if (!insp.lat || !insp.lon) return;
+          const coords = projection([insp.lon, insp.lat]);
+          if (!coords) return;
+          const [x, y] = coords;
+          const s = 6;
+          svg.append("polygon")
+            .attr("points", `${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
+            .attr("fill", "rgba(118,168,255,0.7)")
+            .attr("stroke", "#76a8ff")
+            .attr("stroke-width", 1);
+          if (insp.hailSizeIn != null) {
+            svg.append("text").attr("x", x).attr("y", y - s - 3)
+              .attr("fill", "#76a8ff").attr("font-size", 6).attr("text-anchor", "middle")
+              .attr("font-family", '"IBM Plex Mono", monospace').text(`${insp.hailSizeIn}"`);
+          }
+        });
         // Property pin — white
         if (propCoords) {
           const [px, py] = propCoords;
@@ -601,6 +636,25 @@ return (
               { label: "> 15 mi", min:15, max:999, color:"#4d6797" },
             ];
 
+            // Parse inspection date "April 2022" → Date object
+            const parseInspDate = (str) => {
+              if (!str) return null;
+              const d = new Date(str);
+              return isNaN(d) ? null : d;
+            };
+
+            // Classify inspections by distance
+            const inspWithDist = inspections.map(insp => {
+              const dLat = ((insp.lat - propLat) * Math.PI) / 180;
+              const dLon = ((insp.lon - propLon) * Math.PI) / 180;
+              const a = Math.sin(dLat/2)**2 + Math.cos(propLat*Math.PI/180)*Math.cos(insp.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+              const dist = 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              const inspDate = parseInspDate(insp.inspectionDate);
+              const category = !inspDate ? "unknown"
+                : inspDate <= dolDateObj ? "before" : "after";
+              return { ...insp, distMi: dist, category, inspDate };
+            }).filter(i => i.distMi <= 50);
+
             const catColor = { dol:"#00dcff", before:"#ffb04d", after:"#ff6450" };
             const catLabel = { dol:"DOL", before:"Prior", after:"Post" };
 
@@ -653,6 +707,41 @@ return (
           {classifiedHits.length === 0 && (
             <div style={{ color:"#4d6797", fontSize:10, marginTop:20, textAlign:"center" }}>
               No NEXRAD detections in this period
+            </div>
+          )}
+
+          {inspWithDist.length > 0 && (
+            <div style={{ marginTop:12, paddingTop:10, borderTop:"1px solid #102240" }}>
+              <div style={{ color:"#76a8ff", fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:6 }}>
+                PE-Verified Inspections · {inspWithDist.length} within 50 mi
+              </div>
+              {bands.map(band => {
+                const bandInsp = inspWithDist
+                  .filter(i => i.distMi >= band.min && i.distMi < band.max)
+                  .sort((a,b) => (b.inspDate || 0) - (a.inspDate || 0));
+                if (bandInsp.length === 0) return null;
+                return (
+                  <div key={`insp-${band.label}`} style={{ marginBottom:8 }}>
+                    <div style={{ color:band.color, fontSize:8, letterSpacing:"0.12em", textTransform:"uppercase", borderBottom:"1px solid #102240", paddingBottom:3, marginBottom:4 }}>
+                      {band.label} · {bandInsp.length} inspection{bandInsp.length !== 1 ? "s" : ""}
+                    </div>
+                    {bandInsp.map((insp, i) => (
+                      <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3, paddingBottom:3, borderBottom:"1px solid #050b14" }}>
+                        <div>
+                          <span style={{ color: insp.category === "before" ? "#76a8ff" : "#8db7ff", fontSize:7, marginRight:4 }}>
+                            [{insp.category === "before" ? "Prior" : insp.category === "after" ? "Post" : "—"}]
+                          </span>
+                          <span style={{ color:"#7ea2df" }}>{insp.inspectionDate || "—"}</span>
+                        </div>
+                        <div style={{ display:"flex", gap:8, color:"#4d6797" }}>
+                          {insp.hailSizeIn != null && <span style={{ color:"#76a8ff" }}>{insp.hailSizeIn}"</span>}
+                          <span>{insp.distMi.toFixed(1)} mi</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -3104,7 +3193,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
               {/* Map preview */}
               <div style={{ marginTop:18, width:"100%", overflowX:"auto", borderRadius:14, border:`1px solid ${theme.borderSoft}`, background:"#01040a", padding:10 }}>
                 <div style={{ width:PAGE_W }}>
-                  <HailMapPage data={normalized} nexradHits={nexradHits} preview />
+                  <HailMapPage data={normalized} nexradHits={nexradHits} inspections={hailMapInspections} preview />
                 </div>
               </div>
             </div>
@@ -3139,7 +3228,8 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
                   nexradHits={nexradHits}
                   dateOfLoss={dateOfLoss}
                   idwResult={idwResult}
-                  freezeLevelFt={freezeLevelFt}
+                  freezeLevelFt={idwResult?.freezeLevelFt || null}
+                  inspections={hailMapInspections}
                 />
               </div>
             )}
@@ -3321,7 +3411,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
             {/* Hidden Map PDF page */}
             {normalized && (
               <div ref={mapPageRef} style={{ width:PAGE_W, height:PAGE_H }}>
-                <HailMapPage data={normalized} nexradHits={nexradHits} />
+                <HailMapPage data={normalized} nexradHits={nexradHits} inspections={hailMapInspections} />
               </div>
             )}
             {/* Hidden DOL Map PDF page */}
@@ -3330,7 +3420,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
-            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} />
+            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={idwResult?.freezeLevelFt || null} inspections={hailMapInspections} />
             </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
