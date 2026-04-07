@@ -636,25 +636,6 @@ return (
               { label: "> 15 mi", min:15, max:999, color:"#4d6797" },
             ];
 
-            // Parse inspection date "April 2022" → Date object
-            const parseInspDate = (str) => {
-              if (!str) return null;
-              const d = new Date(str);
-              return isNaN(d) ? null : d;
-            };
-
-            // Classify inspections by distance
-            const inspWithDist = inspections.map(insp => {
-              const dLat = ((insp.lat - propLat) * Math.PI) / 180;
-              const dLon = ((insp.lon - propLon) * Math.PI) / 180;
-              const a = Math.sin(dLat/2)**2 + Math.cos(propLat*Math.PI/180)*Math.cos(insp.lat*Math.PI/180)*Math.sin(dLon/2)**2;
-              const dist = 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              const inspDate = parseInspDate(insp.inspectionDate);
-              const category = !inspDate ? "unknown"
-                : inspDate <= dolDateObj ? "before" : "after";
-              return { ...insp, distMi: dist, category, inspDate };
-            }).filter(i => i.distMi <= 50);
-
             const catColor = { dol:"#00dcff", before:"#ffb04d", after:"#ff6450" };
             const catLabel = { dol:"DOL", before:"Prior", after:"Post" };
 
