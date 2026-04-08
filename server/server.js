@@ -709,7 +709,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       })
       .filter(r => r.lat && r.lon);
 
-    res.json({ count: inspections.length, inspections });
+    res.json({ count: inspections.length, inspections, debug: { totalFetched: allRecords.length, sampleLat: allRecords[0]?.lat, sampleLon: allRecords[0]?.lon } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
