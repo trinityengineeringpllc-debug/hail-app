@@ -649,7 +649,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
 
     while (hasMore) {
       const zohoRes = await fetch(
-        `https://creatorapp.zoho.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`
+        `https://creatorapp.zoho.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
