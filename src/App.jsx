@@ -2791,7 +2791,7 @@ if (!parsed) {
 }
 // If Storm Events has no hail data, fall back to NEXRAD hits as hail events
   const nexradFallbackEvents = directHailEvents.length === 0
-    ? (nexradData?.hits || []).map(h => {
+    ? Object.values(nexradByDate).map(h => {
         const parts = h.date ? h.date.split("-") : [];
         const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         const monthIdx = parts.length === 3 ? months.indexOf(parts[1]) : -1;
