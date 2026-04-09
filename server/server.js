@@ -636,6 +636,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
+    console.log('Hailmap token OK, hitting:', `https://creator.zohoapis.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=200&from=0`);
 
     // Paginate all inspection records
     let allRecords = [];
