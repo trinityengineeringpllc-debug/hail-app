@@ -2789,11 +2789,39 @@ parsed = { location: { address, lat: String(lat), lon: String(lon), county: stor
 if (!parsed) {
   parsed = { location: { address, lat: String(lat), lon: String(lon), county: noaaData?.county, state: noaaData?.state }, summary: "", riskLevel: "Moderate", hailEvents: [], otherEvents: [], stats: { totalHailEvents: 0, largestHailSize: "0", avgEventsPerYear: "0", mostActiveMonth: "N/A", yearsSearched: `${new Date().getFullYear()-10}-${new Date().getFullYear()}` }, sources: [], stations: [] };
 }
-const directHailEvents = stormEventsData.hailEvents
-  .filter(e => {
-    const mag = parseFloat(e.magnitude);
-    return mag > 0 && mag <= 6 && e.magnitudeType !== "EG";
-  })
+// If Storm Events has no hail data, fall back to NEXRAD hits as hail events
+  const nexradFallbackEvents = directHailEvents.length === 0
+    ? (nexradData?.hits || []).map(h => {
+        const parts = h.date ? h.date.split("-") : [];
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const monthIdx = parts.length === 3 ? months.indexOf(parts[1]) : -1;
+        const dateStr = parts.length === 3 && monthIdx !== -1
+          ? `${parts[2]}-${String(monthIdx+1).padStart(2,"0")}-${parts[0].padStart(2,"0")}`
+          : h.date || "Unknown";
+        return {
+          date: dateStr,
+          size: `${h.maxSizeIn} inches${(() => { const s = parseFloat(h.maxSizeIn); if (s >= 4.50) return ' (Softball)'; if (s >= 4.00) return ' (Grapefruit)'; if (s >= 2.75) return ' (Baseball)'; if (s >= 2.50) return ' (Tennis Ball)'; if (s >= 1.75) return ' (Golf Ball)'; if (s >= 1.50) return ' (Ping Pong Ball)'; if (s >= 1.25) return ' (Half Dollar)'; if (s >= 1.00) return ' (Quarter)'; if (s >= 0.88) return ' (Nickel)'; if (s >= 0.75) return ' (Penny)'; if (s >= 0.50) return ' (Marble)'; if (s >= 0.25) return ' (Pea)'; return ''; })()}`,
+          location: `${stormEventsData?.county || parsed.location?.county}, ${stormEventsData?.state || parsed.location?.state}`,
+          injuries: 0,
+          deaths: 0,
+          propertyDamage: "N/A",
+          source: "NEXRAD WSR-88D (NOAA SWDI)",
+          nexradCorroboration: {
+            maxSizeIn: h.maxSizeIn,
+            probHail: h.probHail ?? null,
+            probSevere: h.probSevere ?? null,
+            radar: h.radar,
+            corroborated: false,
+          },
+        };
+      })
+    : [];
+
+  parsed.hailEvents = [
+    ...directHailEvents,
+    ...nexradFallbackEvents,
+    ...(parsed.hailEvents || []),
+  ];
   .map(e => ({
     date: e.date,
     size: `${e.magnitude} inches${(() => { const s = parseFloat(e.magnitude); if (s >= 4.50) return ' (Softball)'; if (s >= 4.00) return ' (Grapefruit)'; if (s >= 2.75) return ' (Baseball)'; if (s >= 2.50) return ' (Tennis Ball)'; if (s >= 1.75) return ' (Golf Ball)'; if (s >= 1.50) return ' (Ping Pong Ball)'; if (s >= 1.25) return ' (Half Dollar)'; if (s >= 1.00) return ' (Quarter)'; if (s >= 0.88) return ' (Nickel)'; if (s >= 0.75) return ' (Penny)'; if (s >= 0.50) return ' (Marble)'; if (s >= 0.25) return ' (Pea)'; return ''; })()}`,    location: e.location || `${stormEventsData.county}, ${stormEventsData.state}`,
