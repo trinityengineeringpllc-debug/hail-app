@@ -617,11 +617,11 @@ app.get("/api/freezinglevel", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
 // ─── Trinity Engineering Hail Map Inspections (auth-protected) ───────────────
 app.get("/api/hailmap", requireAuth, async (req, res) => {
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
-
   try {
     const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
       method: "POST",
@@ -635,13 +635,8 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     });
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
-    if (!accessToken) {
-      console.error('Zoho token error:', JSON.stringify(tokenData));
-      throw new Error("Failed to get Zoho access token");
-    }
-    console.log('Zoho hailmap token OK, fetching records...');
+    if (!accessToken) throw new Error("Failed to get Zoho access token");
 
-    // Paginate all inspection records
     let allRecords = [];
     let page = 1;
     const pageSize = 200;
@@ -654,7 +649,6 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
-      console.log('Zoho hailmap response code:', zohoData?.code, 'records:', zohoData?.data?.length);
       const records = zohoData?.data || [];
       allRecords.push(...records);
       if (records.length < pageSize) {
@@ -664,7 +658,6 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       }
     }
 
-    // Helper — parse fraction strings to decimal inches
     function parseFraction(str) {
       if (!str || str === "" || str.toLowerCase().includes("no")) return null;
       const clean = str.replace(/inch.*$/i, "").trim();
@@ -684,7 +677,6 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       return parseFloat(clean) || null;
     }
 
-    // Filter to 0.5° bbox and return only non-PII fields
     const propLat = parseFloat(lat);
     const propLon = parseFloat(lon);
     const latMin = propLat - 0.5;
@@ -715,7 +707,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       })
       .filter(r => r.lat && r.lon);
 
-    res.json({ count: inspections.length, inspections, debug: { totalFetched: allRecords.length, sampleLat: allRecords[0]?.lat, sampleLon: allRecords[0]?.lon } });
+    res.json({ count: inspections.length, inspections });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
