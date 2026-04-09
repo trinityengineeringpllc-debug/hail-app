@@ -649,7 +649,9 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
         `https://creator.zohoapis.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
-      const zohoData = await zohoRes.json();
+      const zohoText = await zohoRes.text();
+      console.log('Hailmap Zoho response:', zohoRes.status, zohoText.slice(0, 300));
+      const zohoData = JSON.parse(zohoText);
       const records = zohoData?.data || [];
       allRecords.push(...records);
       if (records.length < pageSize) {
