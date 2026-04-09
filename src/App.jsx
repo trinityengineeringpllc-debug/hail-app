@@ -2821,7 +2821,6 @@ const directHailEvents = stormEventsData.hailEvents
           date: dateStr,
           size: `${h.maxSizeIn} inches${(() => { const s = parseFloat(h.maxSizeIn); if (s >= 4.50) return ' (Softball)'; if (s >= 4.00) return ' (Grapefruit)'; if (s >= 2.75) return ' (Baseball)'; if (s >= 2.50) return ' (Tennis Ball)'; if (s >= 1.75) return ' (Golf Ball)'; if (s >= 1.50) return ' (Ping Pong Ball)'; if (s >= 1.25) return ' (Half Dollar)'; if (s >= 1.00) return ' (Quarter)'; if (s >= 0.88) return ' (Nickel)'; if (s >= 0.75) return ' (Penny)'; if (s >= 0.50) return ' (Marble)'; if (s >= 0.25) return ' (Pea)'; return ''; })()}`,
           location: `${stormEventsData?.county || parsed.location?.county}, ${stormEventsData?.state || parsed.location?.state}`,
-          propertyDamage: "N/A",
           source: "NEXRAD WSR-88D (NOAA SWDI)",
           nexradCorroboration: {
             maxSizeIn: h.maxSizeIn,
