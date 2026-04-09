@@ -398,7 +398,7 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('StormEvents error:', err.message, err.stack);
+    console.error('StormEvents error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -709,7 +709,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       })
       .filter(r => r.lat && r.lon);
 
-    res.json({ count: inspections.length, inspections, debug: { totalFetched: allRecords.length, sampleLat: allRecords[0]?.lat, sampleLon: allRecords[0]?.lon } });
+    res.json({ count: inspections.length, inspections });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
