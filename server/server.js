@@ -648,9 +648,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     let hasMore = true;
 
     while (hasMore) {
-      const zohoText = await zohoRes.text();
-      console.log('Zoho hailmap raw response:', zohoText.slice(0, 200));
-      const zohoData = JSON.parse(zohoText);
+      const zohoData = await zohoRes.json();
       console.log('Zoho hailmap response code:', zohoData?.code, 'records:', zohoData?.data?.length);
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
