@@ -635,7 +635,11 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     });
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
-    if (!accessToken) throw new Error("Failed to get Zoho access token");
+    if (!accessToken) {
+      console.error('Zoho token error:', JSON.stringify(tokenData));
+      throw new Error("Failed to get Zoho access token");
+    }
+    console.log('Zoho hailmap token OK, fetching records...');
 
     // Paginate all inspection records
     let allRecords = [];
@@ -649,6 +653,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
+      console.log('Zoho hailmap response code:', zohoData?.code, 'records:', zohoData?.data?.length);
       const records = zohoData?.data || [];
       allRecords.push(...records);
       if (records.length < pageSize) {
