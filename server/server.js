@@ -648,8 +648,10 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     let hasMore = true;
 
     while (hasMore) {
-      const zohoRes = await fetch(
-        `https://creator.zohoapis.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
+      const zohoText = await zohoRes.text();
+      console.log('Zoho hailmap raw response:', zohoText.slice(0, 200));
+      const zohoData = JSON.parse(zohoText);
+      console.log('Zoho hailmap response code:', zohoData?.code, 'records:', zohoData?.data?.length);
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
