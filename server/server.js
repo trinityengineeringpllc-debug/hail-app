@@ -627,9 +627,9 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        refresh_token: process.env.ZOHO_HAILMAP_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
+        refresh_token: process.env.ZOHO_EI_REFRESH_TOKEN,
+        client_id: process.env.ZOHO_EI_CLIENT_ID,
+        client_secret: process.env.ZOHO_EI_CLIENT_SECRET,
         grant_type: "refresh_token",
       }),
     });
