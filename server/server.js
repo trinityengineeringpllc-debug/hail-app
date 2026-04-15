@@ -636,7 +636,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
-    console.log('Hailmap token OK, hitting creator.zohoapis.com');
+    console.log('Hailmap token OK, hitting www.zohoapis.com');
 
     // Paginate all inspection records
     let allRecords = [];
@@ -646,7 +646,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
 
     while (hasMore) {
       const zohoRes = await fetch(
-        `https://creator.zohoapis.com/api/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
+        `https://www.zohoapis.com/creator/v2.1/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: AbortSignal.timeout(8000) }
       );
       const zohoText = await zohoRes.text();
