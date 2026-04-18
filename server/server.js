@@ -639,27 +639,27 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     console.log('Hailmap token OK, hitting www.zohoapis.com');
 
     // Paginate all inspection records
-    let allRecords = [];
-    let page = 1;
-    const pageSize = 200;
+        let allRecords = [];
+    let recordCursor = null;
     let hasMore = true;
-
     while (hasMore) {
+      const headers = { Authorization: `Zoho-oauthtoken ${accessToken}` };
+      if (recordCursor) headers['record_cursor'] = recordCursor;
       const zohoRes = await fetch(
-        `https://www.zohoapis.com/creator/v2/trinity5/engineering-inspections/report/Hail_Diameters?limit=${pageSize}&from=${(page - 1) * pageSize}`,
-        { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` }, signal: AbortSignal.timeout(8000) }
+        `https://www.zohoapis.com/creator/v2.1/data/trinity5/engineering-inspections/report/Hidden_All_Inspections_for_hail_Diameter?max_records=1000`,
+        { headers, signal: AbortSignal.timeout(15000) }
       );
       const zohoText = await zohoRes.text();
-      console.log('Hailmap Zoho response:', zohoRes.status, zohoText.slice(0, 300));
+      console.log('Hailmap Zoho response:', zohoRes.status, zohoText.slice(0, 200));
       const zohoData = JSON.parse(zohoText);
       const records = zohoData?.data || [];
       allRecords.push(...records);
-      if (records.length < pageSize) {
+      recordCursor = zohoData?.record_cursor || null;
+      if (!recordCursor || records.length === 0) {
         hasMore = false;
-      } else {
-        page++;
       }
     }
+
 
     // Helper — parse fraction strings to decimal inches
     function parseFraction(str) {
