@@ -2884,8 +2884,9 @@ riskLevel: (() => {
   if (max >= 1.00 || count >= 5) return "Moderate";
   if (max >= 0.75 || count >= 1) return "Low";
   return "None";
-})(),
-parsed.riskLevel = parsed.stats.riskLevel;
+  })(),
+  };
+  parsed.riskLevel = parsed.stats.riskLevel;
 if (nexradCorroboratedCount > 0) {
       parsed.summary += ` ${nexradCorroboratedCount} of ${parsed.hailEvents.length} recorded hail event${parsed.hailEvents.length !== 1 ? 's' : ''} were independently detected by NEXRAD WSR-88D radar, providing multi-source corroboration.`;
     }
