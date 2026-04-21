@@ -2164,6 +2164,24 @@ function HailEventsTable({ rows, title = "Hail Events - Past 10 Years", style = 
             <div style={{ ...monoCellStyle, color: "#ffcb54", fontWeight: 700 }}>
               {row.size || "N/A"}
               {row.nexradCorroboration && (
+                <span style={{
+                  display: "inline-block",
+                  marginLeft: 8,
+                  padding: "2px 7px",
+                  fontSize: 8,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  borderRadius: 3,
+                  fontFamily: '"IBM Plex Mono", monospace',
+                  verticalAlign: "middle",
+                  background: row.nexradOnly ? "rgba(255,176,77,0.15)" : "rgba(76,175,80,0.15)",
+                  color: row.nexradOnly ? "#ffb04d" : "#4caf50",
+                  border: `1px solid ${row.nexradOnly ? "rgba(255,176,77,0.4)" : "rgba(76,175,80,0.4)"}`,
+                }}>
+                  {row.nexradOnly ? "RADAR ONLY" : "CORROBORATED"}
+                </span>
+              )}
+              {row.nexradCorroboration && (
                 <div style={{ fontSize: 10, fontWeight: 400, marginTop: 3, color: row.nexradCorroboration.corroborated ? "#4caf50" : "#aaa" }}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" style={{width:10,height:10,marginRight:3,verticalAlign:'middle',display:'inline-block'}}>
                     <path d="M1 11 A9 9 0 0 1 19 11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
