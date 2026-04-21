@@ -290,8 +290,8 @@ function HailMapPage({ data, nexradHits = [], inspections = [], preview = false 
           const s = 6;
           svg.append("polygon")
             .attr("points", `${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
-            .attr("fill", "rgba(118,168,255,0.7)")
-            .attr("stroke", "#76a8ff")
+            .attr("fill", "rgba(65,105,225,0.8)")
+            .attr("stroke", "#4169E1")
             .attr("stroke-width", 1);
         });
           // Property pin
@@ -541,8 +541,8 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, fre
           const s = 6;
           svg.append("polygon")
             .attr("points", `${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
-            .attr("fill", "rgba(118,168,255,0.7)")
-            .attr("stroke", "#76a8ff")
+            .attr("fill", "rgba(65,105,225,0.8)")
+            .attr("stroke", "#4169E1")
             .attr("stroke-width", 1);
           if (insp.hailSizeIn != null) {
             svg.append("text").attr("x", x).attr("y", y - s - 3)
@@ -735,9 +735,23 @@ return (
                           </span>
                           <span style={{ color:"#7ea2df" }}>{insp.inspectionDate || "—"}</span>
                         </div>
-                        <div style={{ display:"flex", gap:8, color:"#4d6797" }}>
-                          {insp.hailSizeIn != null && <span style={{ color:"#76a8ff" }}>{insp.hailSizeIn}"</span>}
-                          <span>{insp.distMi.toFixed(1)} mi</span>
+                       <div style={{ display:"flex", gap:8, color:"#4d6797" }}>
+                          {insp.dentsSizeIn != null && (
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>dents</div>
+                              <span style={{ color:"#76a8ff" }}>{insp.dentsSizeIn}"</span>
+                            </div>
+                          )}
+                          {insp.spatterSizeIn != null && (
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>spatter</div>
+                              <span style={{ color:"#76a8ff" }}>{insp.spatterSizeIn}"</span>
+                            </div>
+                          )}
+                          <div style={{ textAlign:"right" }}>
+                            <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>dist</div>
+                            <span>{insp.distMi.toFixed(1)} mi</span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -2927,7 +2941,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
         return hDate === hDateFormatted;
       });
       const freezeLevelFt = freezingLevelData?.freezeLevelFt || null;
-      const idw = runIDW(lat, lon, parsed.stations, 2);
+      const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null, 2, freezeLevelFt);
       setIdwResult(idw);
     }
 
