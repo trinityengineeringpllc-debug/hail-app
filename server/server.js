@@ -691,19 +691,21 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
 
     const inspections = allRecords
       .filter(r => {
-        const rLat = parseFloat(r.lat);
-        const rLon = parseFloat(r.lon);
+        const rLat = parseFloat(r.Inspection_Address?.latitude || r.lat);
+        const rLon = parseFloat(r.Inspection_Address?.longitude || r.lon);
         return rLat >= latMin && rLat <= latMax && rLon >= lonMin && rLon <= lonMax;
       })
       .map(r => {
+        const rLat = parseFloat(r.Inspection_Address?.latitude || r.lat);
+        const rLon = parseFloat(r.Inspection_Address?.longitude || r.lon);
         const dents = parseFraction(r.Hail_Dents_Diameter);
         const spatter = parseFraction(r.Hail_Spatter_Diameter);
         const hailSize = (dents != null && spatter != null)
           ? Math.max(dents, spatter)
           : (dents ?? spatter ?? null);
         return {
-          lat: parseFloat(r.lat),
-          lon: parseFloat(r.lon),
+          lat: rLat,
+          lon: rLon,
           hailSizeIn: hailSize,
           dentsSizeIn: dents,
           spatterSizeIn: spatter,
