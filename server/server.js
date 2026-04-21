@@ -351,24 +351,30 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
 
-    const hailRes = await fetch(
-      `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=county%3D%22${countyName}%22%20AND%20state%3D%22${stateName}%22%20AND%20event_type%3D%22Hail%22&limit=200`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
-    const hailDataRaw = await hailRes.json();
-    hailDataRaw.data = (hailDataRaw?.data || []).filter(r =>
-      r.state === stateName && r.county === countyName
-    );
-    const hailData = hailDataRaw;
-    const otherRes = await fetch(
-    `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=${encodeURIComponent(`county="${countyName}" AND state="${stateName}" AND event_type!="Hail"`)}&limit=200`,
-      { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-    );
-    const otherDataRaw = await otherRes.json();
-    otherDataRaw.data = (otherDataRaw?.data || []).filter(r => 
-      r.state === stateName && r.county === countyName
-    );
-    const otherData = otherDataRaw;
+    // Paginated Zoho Creator v2 fetch — gets ALL records matching criteria, not just first 200
+    async function fetchAllStormEvents(criteriaStr) {
+      const pageSize = 200;
+      let page = 1;
+      let allRecords = [];
+      let hasMore = true;
+      while (hasMore) {
+        const url = `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Storm_Events?criteria=${encodeURIComponent(criteriaStr)}&limit=${pageSize}&from=${(page - 1) * pageSize}`;
+        const resp = await fetch(url, { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } });
+        const data = await resp.json();
+        const records = data?.data || [];
+        allRecords.push(...records);
+        if (records.length < pageSize) hasMore = false;
+        else page++;
+        if (page > 50) break; // safety cap — 10,000 records max per query
+      }
+      return allRecords;
+    }
+
+    const hailRecords = await fetchAllStormEvents(`county="${countyName}" AND state="${stateName}" AND event_type="Hail"`);
+    const otherRecords = await fetchAllStormEvents(`county="${countyName}" AND state="${stateName}" AND event_type!="Hail"`);
+
+    const hailData = { data: hailRecords.filter(r => r.state === stateName && r.county === countyName) };
+    const otherData = { data: otherRecords.filter(r => r.state === stateName && r.county === countyName) };
 
     const normalize = (records) => (records || []).map(r => ({
       date: r.event_date,
