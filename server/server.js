@@ -712,7 +712,7 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
           inspectionDate: r.Appointment_Start || null,
         };
       })
-      .filter(r => r.lat && r.lon);
+      .filter(r => r.lat && r.lon && r.hailSizeIn != null);
 
     res.json({ count: inspections.length, inspections });
   } catch (err) {
