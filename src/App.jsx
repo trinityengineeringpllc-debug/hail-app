@@ -2869,18 +2869,22 @@ mostActiveMonth: (() => {
   const size = parseFloat(e.size);
   return size > parseFloat(max) ? String(size) : max;
 }, "0"),
+largestHailSize: [...directHailEvents, ...nexradFallbackEvents].reduce((max, e) => {
+  const size = parseFloat(e.size);
+  return size > parseFloat(max) ? String(size) : max;
+}, "0"),
 riskLevel: (() => {
-  const max = parseFloat(directHailEvents.reduce((m, e) => {
+  const allEvents = [...directHailEvents, ...nexradFallbackEvents];
+  const max = parseFloat(allEvents.reduce((m, e) => {
     const s = parseFloat(e.size);
     return s > parseFloat(m) ? String(s) : m;
   }, "0"));
-  const count = directHailEvents.length;
+  const count = allEvents.length;
   if (max >= 1.75 || count >= 10) return "High";
   if (max >= 1.00 || count >= 5) return "Moderate";
   if (max >= 0.75 || count >= 1) return "Low";
   return "None";
 })(),
-  };
 parsed.riskLevel = parsed.stats.riskLevel;
 if (nexradCorroboratedCount > 0) {
       parsed.summary += ` ${nexradCorroboratedCount} of ${parsed.hailEvents.length} recorded hail event${parsed.hailEvents.length !== 1 ? 's' : ''} were independently detected by NEXRAD WSR-88D radar, providing multi-source corroboration.`;
