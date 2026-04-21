@@ -2823,33 +2823,41 @@ const directHailEvents = stormEventsData.hailEvents
           corroborated: Math.abs(parseFloat(nexradByDate[e.date].maxSizeIn) - parseFloat(e.magnitude)) <= 0.25,
         } : null,
       }));
-  const nexradFallbackEvents = directHailEvents.length === 0
-    ? Object.values(nexradByDate).map(h => {
-        const parts = h.date ? h.date.split("-") : [];
-        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        const monthIdx = parts.length === 3 ? months.indexOf(parts[1]) : -1;
-        const dateStr = parts.length === 3 && monthIdx !== -1
-          ? `${parts[2]}-${String(monthIdx+1).padStart(2,"0")}-${parts[0].padStart(2,"0")}`
-          : h.date || "Unknown";
-        return {
-          date: dateStr,
-          size: `${h.maxSizeIn} inches${(() => { const s = parseFloat(h.maxSizeIn); if (s >= 4.50) return ' (Softball)'; if (s >= 4.00) return ' (Grapefruit)'; if (s >= 2.75) return ' (Baseball)'; if (s >= 2.50) return ' (Tennis Ball)'; if (s >= 1.75) return ' (Golf Ball)'; if (s >= 1.50) return ' (Ping Pong Ball)'; if (s >= 1.25) return ' (Half Dollar)'; if (s >= 1.00) return ' (Quarter)'; if (s >= 0.88) return ' (Nickel)'; if (s >= 0.75) return ' (Penny)'; if (s >= 0.50) return ' (Marble)'; if (s >= 0.25) return ' (Pea)'; return ''; })()}`,
-          location: `${stormEventsData?.county || parsed.location?.county}, ${stormEventsData?.state || parsed.location?.state}`,
-          source: "NEXRAD WSR-88D (NOAA SWDI)",
-          nexradCorroboration: {
-            maxSizeIn: h.maxSizeIn,
-            probHail: h.probHail ?? null,
-            probSevere: h.probSevere ?? null,
-            radar: h.radar,
-            corroborated: false,
-          },
-        };
-      })
-    : [];
+  // Build a set of Storm Events hail dates (in DD-MMM-YYYY format, matching NEXRAD)
+  const stormEventsHailDates = new Set(
+    directHailEvents.map(e => e.date).filter(Boolean)
+  );
+
+  // NEXRAD-only events: radar detections on dates with NO Storm Events record
+  // These are displayed as standalone radar detections (not "corroborated")
+  const nexradOnlyEvents = Object.values(nexradByDate)
+    .filter(h => h.date && !stormEventsHailDates.has(h.date))
+    .map(h => {
+      const parts = h.date ? h.date.split("-") : [];
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const monthIdx = parts.length === 3 ? months.indexOf(parts[1]) : -1;
+      const dateStr = parts.length === 3 && monthIdx !== -1
+        ? `${parts[2]}-${String(monthIdx+1).padStart(2,"0")}-${parts[0].padStart(2,"0")}`
+        : h.date || "Unknown";
+      return {
+        date: dateStr,
+        size: `${h.maxSizeIn} inches${(() => { const s = parseFloat(h.maxSizeIn); if (s >= 4.50) return ' (Softball)'; if (s >= 4.00) return ' (Grapefruit)'; if (s >= 2.75) return ' (Baseball)'; if (s >= 2.50) return ' (Tennis Ball)'; if (s >= 1.75) return ' (Golf Ball)'; if (s >= 1.50) return ' (Ping Pong Ball)'; if (s >= 1.25) return ' (Half Dollar)'; if (s >= 1.00) return ' (Quarter)'; if (s >= 0.88) return ' (Nickel)'; if (s >= 0.75) return ' (Penny)'; if (s >= 0.50) return ' (Marble)'; if (s >= 0.25) return ' (Pea)'; return ''; })()}`,
+        location: `${stormEventsData?.county || parsed.location?.county}, ${stormEventsData?.state || parsed.location?.state}`,
+        source: "NEXRAD WSR-88D (NOAA SWDI)",
+        nexradOnly: true,
+        nexradCorroboration: {
+          maxSizeIn: h.maxSizeIn,
+          probHail: h.probHail ?? null,
+          probSevere: h.probSevere ?? null,
+          radar: h.radar,
+          corroborated: false,
+        },
+      };
+    });
 
   parsed.hailEvents = [
     ...directHailEvents,
-    ...nexradFallbackEvents,
+    ...nexradOnlyEvents,
     ...(parsed.hailEvents || []),
   ];
   parsed.hailEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -2868,7 +2876,14 @@ description: (() => {
 damage: e.propertyDamage || "N/A",    
   }));
   const nexradHitCount = Object.keys(nexradByDate).length;
-  const nexradCorroboratedCount = parsed.hailEvents.filter(e => e.nexradCorroboration !== null).length;
+  // True corroboration = Storm Events record + NEXRAD detection on same date (two independent sources)
+  const nexradCorroboratedCount = parsed.hailEvents.filter(e =>
+    e.nexradCorroboration && !e.nexradOnly && e.source !== "NEXRAD WSR-88D (NOAA SWDI)"
+  ).length;
+  const nexradOnlyCount = parsed.hailEvents.filter(e => e.nexradOnly).length;
+  const stormEventsOnlyCount = parsed.hailEvents.filter(e =>
+    !e.nexradOnly && !e.nexradCorroboration && e.source === "NOAA Storm Events Database"
+  ).length;
   parsed.stats = {
     totalHailEvents: parsed.hailEvents.length,
     nexradHits: nexradHitCount,
@@ -2903,8 +2918,11 @@ riskLevel: (() => {
   })(),
   };
   parsed.riskLevel = parsed.stats.riskLevel;
-if (nexradCorroboratedCount > 0) {
-      parsed.summary += ` ${nexradCorroboratedCount} of ${parsed.hailEvents.length} recorded hail event${parsed.hailEvents.length !== 1 ? 's' : ''} were independently detected by NEXRAD WSR-88D radar, providing multi-source corroboration.`;
+const totalEvents = parsed.hailEvents.length;
+    if (nexradCorroboratedCount > 0) {
+      parsed.summary += ` Of ${totalEvents} recorded hail event${totalEvents !== 1 ? 's' : ''}, ${nexradCorroboratedCount} ${nexradCorroboratedCount !== 1 ? 'are' : 'is'} independently corroborated by both NOAA Storm Events ground reports and NEXRAD WSR-88D radar${nexradOnlyCount > 0 ? `, while ${nexradOnlyCount} additional event${nexradOnlyCount !== 1 ? 's were' : ' was'} detected by NEXRAD radar alone (no ground-truth spotter report on file)` : ''}.`;
+    } else if (nexradOnlyCount > 0 && stormEventsOnlyCount === 0) {
+      parsed.summary += ` All ${totalEvents} recorded hail event${totalEvents !== 1 ? 's were' : ' was'} detected by NEXRAD WSR-88D radar. No independent ground-truth spotter reports are on file in the NOAA Storm Events Database for these dates, which is common in rural counties with limited spotter coverage.`;
     }
     parsed.mcds = spcmcdData?.mcds || [];
     setNexradHits(nexradData?.hits || []);
