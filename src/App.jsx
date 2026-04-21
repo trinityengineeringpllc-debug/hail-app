@@ -2896,16 +2896,12 @@ mostActiveMonth: (() => {
   });
   return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
 })(),
-  largestHailSize: directHailEvents.reduce((max, e) => {
-  const size = parseFloat(e.size);
-  return size > parseFloat(max) ? String(size) : max;
-}, "0"),
-largestHailSize: [...directHailEvents, ...nexradFallbackEvents].reduce((max, e) => {
+  largestHailSize: [...directHailEvents, ...nexradOnlyEvents].reduce((max, e) => {
   const size = parseFloat(e.size);
   return size > parseFloat(max) ? String(size) : max;
 }, "0"),
 riskLevel: (() => {
-  const allEvents = [...directHailEvents, ...nexradFallbackEvents];
+  const allEvents = [...directHailEvents, ...nexradOnlyEvents];
   const max = parseFloat(allEvents.reduce((m, e) => {
     const s = parseFloat(e.size);
     return s > parseFloat(m) ? String(s) : m;
