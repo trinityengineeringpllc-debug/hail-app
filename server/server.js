@@ -402,21 +402,73 @@ app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// ─── NEXRAD Level-3 Hail Detection via Zoho Creator (auth-protected) ─────────
+// ─── NEXRAD Level-3 Hail Detection via Zoho + live NOAA SWDI (auth-protected) ─────────
 app.get("/api/nexrad", requireAuth, async (req, res) => {
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: "lat and lon required" });
-
   try {
     const endYear = new Date().getFullYear();
     const startYear = endYear - 10;
-
-    // Compute tile key from property lat/lon
     const tileLat = Math.floor(parseFloat(lat));
     const tileLon = Math.floor(parseFloat(lon));
     const tileKey = `${tileLat}_${tileLon}`;
+    const latMin = parseFloat(lat) - 0.5;
+    const latMax = parseFloat(lat) + 0.5;
+    const lonMin = parseFloat(lon) - 0.5;
+    const lonMax = parseFloat(lon) + 0.5;
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const today = new Date();
 
-    // Get Zoho access token
+    // ── 1. Live NOAA SWDI query for last 90 days ──────────────────────────────
+    const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const swdiUrl = `https://www.ncei.noaa.gov/swdiws/csv/nx3hail/${fmt(ninetyDaysAgo)}:${fmt(today)}?` +
+      `bbox=${lonMin},${latMin},${lonMax},${latMax}`;
+    let liveHits = [];
+    try {
+      const swdiRes = await fetch(swdiUrl, {
+        headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" },
+        signal: AbortSignal.timeout(15000)
+      });
+      const swdiText = await swdiRes.text();
+      const swdiLines = swdiText.split('\n').filter(l => l && !l.startsWith('#'));
+      if (swdiLines.length > 1) {
+        const headers = swdiLines[0].split(',').map(h => h.trim().toLowerCase());
+        const ztimeIdx = headers.indexOf('ztime');
+        const latIdx = headers.indexOf('lat');
+        const lonIdx = headers.indexOf('lon');
+        const sizeIdx = headers.indexOf('maxsize');
+        const probIdx = headers.indexOf('prob');
+        const sevIdx = headers.indexOf('sevprob');
+        const wsrIdx = headers.indexOf('wsr_id');
+        for (let i = 1; i < swdiLines.length; i++) {
+          const cols = swdiLines[i].split(',');
+          if (cols.length < 4) continue;
+          const dateRaw = cols[ztimeIdx] || '';
+          const hLat = parseFloat(cols[latIdx] || 0);
+          const hLon = parseFloat(cols[lonIdx] || 0);
+          const maxSize = parseFloat(cols[sizeIdx] || 0);
+          const wsrId = (cols[wsrIdx] || '').trim();
+          if (!dateRaw || !hLat || !hLon || maxSize <= 0) continue;
+          const d = new Date(dateRaw);
+          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          const dateFormatted = `${String(d.getUTCDate()).padStart(2,'0')}-${months[d.getUTCMonth()]}-${d.getUTCFullYear()}`;
+          liveHits.push({
+            date: dateFormatted,
+            maxSizeIn: maxSize.toFixed(2),
+            probHail: probIdx >= 0 ? parseInt(cols[probIdx] || 0) : null,
+            probSevere: sevIdx >= 0 ? parseInt(cols[sevIdx] || 0) : null,
+            radar: wsrId || null,
+            lat: hLat,
+            lon: hLon,
+            source: "NEXRAD Level-3 HDA / NOAA SWDI (live)",
+          });
+        }
+      }
+    } catch (swdiErr) {
+      console.log('SWDI live query failed, using Zoho only:', swdiErr.message);
+    }
+
+    // ── 2. Zoho historical query ───────────────────────────────────────────────
     const tokenRes = await fetch("https://accounts.zoho.com/oauth/v2/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -430,67 +482,56 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
-
-    // Paginate through all Zoho records for this tile
     const criteria = encodeURIComponent(`tile1 = "${tileKey}"`);
     let allRecords = [];
     let page = 1;
     const pageSize = 200;
     let hasMore = true;
-
     while (hasMore) {
       const zohoRes = await fetch(
-    `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize}&fields=event_date,lat,lon,max_size,prob_hail,prob_severe,radar,wsr_id,tile1`,
+        `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize}&fields=event_date,lat,lon,max_size,prob_hail,prob_severe,radar,wsr_id,tile1`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
       const records = zohoData?.data || [];
       allRecords.push(...records);
-      if (records.length < pageSize) {
-        hasMore = false;
-      } else {
-        page++;
-      }
+      if (records.length < pageSize) hasMore = false;
+      else page++;
     }
+    const zohoHits = allRecords
+      .filter(r => {
+        const rLat = parseFloat(r.lat);
+        const rLon = parseFloat(r.lon);
+        return rLat >= latMin && rLat <= latMax && rLon >= lonMin && rLon <= lonMax;
+      })
+      .map(r => ({
+        date: r.event_date,
+        maxSizeIn: parseFloat(r.max_size).toFixed(2),
+        probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
+        probSevere: r.prob_severe ? parseInt(r.prob_severe) : null,
+        radar: r.wsr_id || null,
+        lat: parseFloat(r.lat),
+        lon: parseFloat(r.lon),
+        source: "NEXRAD Level-3 HDA / NOAA SWDI",
+      }));
 
-    // Filter precisely to 0.5° bbox in Node
-    const latMin = parseFloat(lat) - 0.5;
-    const latMax = parseFloat(lat) + 0.5;
-    const lonMin = parseFloat(lon) - 0.5;
-    const lonMax = parseFloat(lon) + 0.5;
-
-    const filtered = allRecords.filter(r => {
-      const rLat = parseFloat(r.lat);
-      const rLon = parseFloat(r.lon);
-      return rLat >= latMin && rLat <= latMax && rLon >= lonMin && rLon <= lonMax;
-    });
-
-    const hits = filtered.map((r) => ({
-      date: r.event_date,
-      maxSizeIn: parseFloat(r.max_size).toFixed(2),
-      probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
-      probSevere: r.prob_severe ? parseInt(r.prob_severe) : null,
-      radar: r.wsr_id || null,
-      lat: parseFloat(r.lat),
-      lon: parseFloat(r.lon),
-      source: "NEXRAD Level-3 HDA / NOAA SWDI",
-    }));
-
-    // Deduplicate by date — keep max size per day
+    // ── 3. Merge and deduplicate by date, keep max size ───────────────────────
+    const allHits = [...zohoHits, ...liveHits];
     const byDate = {};
-    hits.forEach((h) => {
+    allHits.forEach(h => {
+      if (!h.date) return;
       if (!byDate[h.date] || parseFloat(h.maxSizeIn) > parseFloat(byDate[h.date].maxSizeIn)) {
         byDate[h.date] = h;
       }
     });
-
     const deduplicated = Object.values(byDate).sort((a, b) =>
       a.date > b.date ? -1 : 1
     );
-
     res.json({
       count: deduplicated.length,
-      dateRange: { start: `${startYear}-01-01`, end: `${endYear}-12-31` },
+      liveCount: liveHits.length,
+      zohoCount: zohoHits.length,
+      dateRange: { start: `${startYear}-01-01`, end: fmt(today) },
       hits: deduplicated,
     });
   } catch (err) {
