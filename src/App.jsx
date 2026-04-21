@@ -290,8 +290,8 @@ function HailMapPage({ data, nexradHits = [], inspections = [], preview = false 
           const s = 6;
           svg.append("polygon")
             .attr("points", `${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
-            .attr("fill", "rgba(65,105,225,0.8)")
-            .attr("stroke", "#4169E1")
+            .attr("fill", "rgba(0,0,205,0.8)")
+            .attr("stroke", "#ffffff")
             .attr("stroke-width", 1);
         });
           // Property pin
@@ -541,8 +541,8 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, fre
           const s = 6;
           svg.append("polygon")
             .attr("points", `${x},${y-s} ${x-s*0.866},${y+s*0.5} ${x+s*0.866},${y+s*0.5}`)
-            .attr("fill", "rgba(65,105,225,0.8)")
-            .attr("stroke", "#4169E1")
+            .attr("fill", "rgba(0,0,205,0.8)")
+            .attr("stroke", "#ffffff")
             .attr("stroke-width", 1);
           if (insp.hailSizeIn != null) {
             svg.append("text").attr("x", x).attr("y", y - s - 3)
