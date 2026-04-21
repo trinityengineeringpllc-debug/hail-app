@@ -2852,6 +2852,8 @@ const directHailEvents = stormEventsData.hailEvents
     ...nexradFallbackEvents,
     ...(parsed.hailEvents || []),
   ];
+  parsed.hailEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
   parsed.otherEvents = (stormEventsData?.otherEvents || [])
   .filter(e => e.type && e.date && e.type !== "Hail")
   .map(e => ({
@@ -3006,22 +3008,40 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
           pdf.rect(0, 0, pdfW, pdfH, "F");
           pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
         }
-      // Add DOL map page
+      // Add DOL map page — multi-page capture so long inspection lists don't clip
       if (idwResult && dolMapPdfRef.current) {
-        const dolMapCanvas = await html2canvas(dolMapPdfRef.current, {
+        const dolNode = dolMapPdfRef.current;
+        await new Promise(function(resolve) { setTimeout(resolve, 1200); });
+        const dolMapCanvas = await html2canvas(dolNode, {
           backgroundColor: theme.pageBg,
           scale: 2.2,
           useCORS: true,
+          allowTaint: true,
           logging: false,
           windowWidth: PAGE_W,
           windowHeight: PAGE_H,
+          scrollX: -window.scrollX,
+          scrollY: -window.scrollY,
+          x: 0,
+          y: 0,
           width: PAGE_W,
-          height: PAGE_H,
+          height: dolNode.scrollHeight || PAGE_H,
         });
+        const dolImg = dolMapCanvas.toDataURL("image/png");
+        const dolRatio = dolMapCanvas.height / dolMapCanvas.width;
+        const dolNaturalH = pdfW * dolRatio;
         pdf.addPage();
-          pdf.setFillColor(3, 7, 15);
-          pdf.rect(0, 0, pdfW, pdfH, "F");
-          pdf.addImage(dolMapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
+        pdf.setFillColor(3, 7, 15);
+        pdf.rect(0, 0, pdfW, pdfH, "F");
+        if (dolNaturalH <= pdfH) {
+          pdf.addImage(dolImg, "PNG", 0, 0, pdfW, dolNaturalH, undefined, "FAST");
+        } else {
+          const dolPages = Math.ceil(dolNaturalH / pdfH);
+          for (let p = 0; p < dolPages; p++) {
+            if (p > 0) { pdf.addPage(); pdf.setFillColor(3, 7, 15); pdf.rect(0, 0, pdfW, pdfH, "F"); }
+            pdf.addImage(dolImg, "PNG", 0, -(p * pdfH), pdfW, dolNaturalH, undefined, "FAST");
+          }
+        }
       }
       // Add IDW page if date of loss was set and IDW computed
       if (idwResult && idwPdfRef.current) {
@@ -3463,7 +3483,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
             )}
             {/* Hidden DOL Map PDF page */}
             {idwResult && dateOfLoss && (
-              <div ref={dolMapPdfRef} style={{ width:PAGE_W, height:PAGE_H, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box", overflow:"hidden" }}>
+              <div ref={dolMapPdfRef} style={{ width:PAGE_W, minHeight:PAGE_H, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box" }}>
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
