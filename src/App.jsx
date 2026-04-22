@@ -3009,44 +3009,46 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
 
         const canvas = await html2canvas(node, {
           backgroundColor: theme.pageBg,
-          scale: 2.2,
+          scale: 1.8,
           useCORS: true,
           logging: false,
           windowWidth: PAGE_W,
           windowHeight: PAGE_H,
         });
 
-        const img = canvas.toDataURL("image/png");
+        const img = canvas.toDataURL("image/jpeg", 0.85);
 
         if (i > 0) pdf.addPage();
         // Ensure dark background on every page before placing image
         pdf.setFillColor(3, 7, 15);
         pdf.rect(0, 0, pdfW, pdfH, "F");
-        pdf.addImage(img, "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
+        pdf.addImage(img, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
+
       }
       // Add map page – wait for SVG to finish rendering
         if (mapPageRef.current) {
           await new Promise(function(resolve) { setTimeout(resolve, 1200); });
           const mapCanvas = await html2canvas(mapPageRef.current, {
             backgroundColor: theme.pageBg,
-            scale: 2.2,
+            scale: 1.8,
             useCORS: true,
             logging: false,
             windowWidth: PAGE_W,
             windowHeight: PAGE_H,
           });
-          pdf.addPage();
+      pdf.addPage();
           pdf.setFillColor(3, 7, 15);
           pdf.rect(0, 0, pdfW, pdfH, "F");
-          pdf.addImage(mapCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, pdfH, undefined, "FAST");
+          pdf.addImage(mapCanvas.toDataURL("image/jpeg", 0.85), "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
         }
+
       // Add DOL map page — multi-page capture so long inspection lists don't clip
       if (idwResult && dolMapPdfRef.current) {
         const dolNode = dolMapPdfRef.current;
         await new Promise(function(resolve) { setTimeout(resolve, 1200); });
         const dolMapCanvas = await html2canvas(dolNode, {
           backgroundColor: theme.pageBg,
-          scale: 2.2,
+          scale: 1.8,
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -3059,28 +3061,29 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
           width: PAGE_W,
           height: dolNode.scrollHeight || PAGE_H,
         });
-        const dolImg = dolMapCanvas.toDataURL("image/png");
+    const dolImg = dolMapCanvas.toDataURL("image/jpeg", 0.85);
         const dolRatio = dolMapCanvas.height / dolMapCanvas.width;
         const dolNaturalH = pdfW * dolRatio;
         pdf.addPage();
         pdf.setFillColor(3, 7, 15);
         pdf.rect(0, 0, pdfW, pdfH, "F");
         if (dolNaturalH <= pdfH) {
-          pdf.addImage(dolImg, "PNG", 0, 0, pdfW, dolNaturalH, undefined, "FAST");
+          pdf.addImage(dolImg, "JPEG", 0, 0, pdfW, dolNaturalH, undefined, "FAST");
         } else {
           const dolPages = Math.ceil(dolNaturalH / pdfH);
           for (let p = 0; p < dolPages; p++) {
             if (p > 0) { pdf.addPage(); pdf.setFillColor(3, 7, 15); pdf.rect(0, 0, pdfW, pdfH, "F"); }
-            pdf.addImage(dolImg, "PNG", 0, -(p * pdfH), pdfW, dolNaturalH, undefined, "FAST");
+            pdf.addImage(dolImg, "JPEG", 0, -(p * pdfH), pdfW, dolNaturalH, undefined, "FAST");
           }
         }
+
       }
       // Add IDW page if date of loss was set and IDW computed
       if (idwResult && idwPdfRef.current) {
         const idwNode = idwPdfRef.current;
         const idwCanvas = await html2canvas(idwNode, {
           backgroundColor: theme.pageBg,
-          scale: 2.2,
+          scale: 1.8,
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -3098,19 +3101,20 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
         // Fill entire page with dark background so no white gap appears
         pdf.setFillColor(3, 7, 15); // theme.pageBg #03070f
         pdf.rect(0, 0, pdfW, pdfH, "F");
-        const idwImg = idwCanvas.toDataURL("image/png");
+        const idwImg = idwCanvas.toDataURL("image/jpeg", 0.85);
         // Scale proportionally, anchored to top-left
         const idwRatio = idwCanvas.height / idwCanvas.width;
         const idwNaturalH = pdfW * idwRatio;
         if (idwNaturalH <= pdfH) {
-          pdf.addImage(idwImg, "PNG", 0, 0, pdfW, idwNaturalH, undefined, "FAST");
+          pdf.addImage(idwImg, "JPEG", 0, 0, pdfW, idwNaturalH, undefined, "FAST");
         } else {
           const pages = Math.ceil(idwNaturalH / pdfH);
           for (let p = 0; p < pages; p++) {
             if (p > 0) { pdf.addPage(); pdf.setFillColor(3, 7, 15); pdf.rect(0, 0, pdfW, pdfH, "F"); }
-            pdf.addImage(idwImg, "PNG", 0, -(p * pdfH), pdfW, idwNaturalH, undefined, "FAST");
+            pdf.addImage(idwImg, "JPEG", 0, -(p * pdfH), pdfW, idwNaturalH, undefined, "FAST");
           }
         }
+
       }
 
       const countyName = String(normalized.location.county || "report")
