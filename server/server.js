@@ -320,6 +320,60 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── Google Maps Geocoding (auth-protected) ──────────────────────────────────
+app.get("/api/geocode", requireAuth, async (req, res) => {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "GOOGLE_MAPS_API_KEY not configured" });
+  }
+
+  const { address } = req.query;
+  if (!address) return res.status(400).json({ error: "address required" });
+
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const googleRes = await fetch(url);
+    const data = await googleRes.json();
+
+    if (data.status !== "OK" || !data.results?.length) {
+      return res.status(404).json({
+        error: `Geocoding failed: ${data.status}`,
+        message: data.error_message || "Address could not be resolved. Please check the address and try again.",
+      });
+    }
+
+    const result = data.results[0];
+    const lat = result.geometry?.location?.lat;
+    const lon = result.geometry?.location?.lng;
+    const locationType = result.geometry?.location_type;
+    const placeId = result.place_id;
+    const formattedAddress = result.formatted_address;
+
+    // Extract address components for downstream use
+    const components = {};
+    (result.address_components || []).forEach((c) => {
+      if (c.types.includes("administrative_area_level_2")) components.county = c.long_name;
+      if (c.types.includes("administrative_area_level_1")) components.state = c.long_name;
+      if (c.types.includes("postal_code")) components.postalCode = c.long_name;
+      if (c.types.includes("locality")) components.city = c.long_name;
+    });
+
+    console.log(`Geocoded [${locationType}]: ${formattedAddress} → ${lat}, ${lon} (place_id: ${placeId})`);
+
+    res.json({
+      lat,
+      lon,
+      placeId,
+      formattedAddress,
+      locationType,
+      components,
+      source: "Google Maps Geocoding API",
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── NOAA Storm Events via Zoho Creator (auth-protected) ─────────────────────
 app.get("/api/noaa/stormevents", requireAuth, async (req, res) => {
   const { lat, lon } = req.query;
