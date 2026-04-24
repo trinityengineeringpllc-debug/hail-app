@@ -2594,30 +2594,27 @@ async function handleLookup() {
       ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
     };
 
-    // ── Step 1: Geocode via Claude (fast, no tools) ──────────────────────────
-    const geocodeMessages = [
-      {
-        role: "user",
-        content: `Return ONLY a JSON object with lat and lon for this address: ${address}
-Example: {"lat": "35.9029", "lon": "-77.5266"}
-No prose. No markdown. Just the JSON.`,
-      },
-    ];
+    // ── Step 1: Geocode via Google Maps API (deterministic, Daubert-defensible) ─
+    const geocodeRes = await fetch(
+      `${API}/api/geocode?address=${encodeURIComponent(address)}`,
+      { credentials: "include", headers: authHeaders }
+    );
 
-    const geoData = await callAnthropic(geocodeMessages, false);
-    let lat, lon;
-
-    try {
-      const geoJson = extractJsonPayload(geoData);
-      lat = parseFloat(geoJson?.lat);
-      lon = parseFloat(geoJson?.lon);
-    } catch {
-      throw new Error("Could not geocode address. Please try a more specific address.");
+    if (!geocodeRes.ok) {
+      const errData = await geocodeRes.json().catch(() => ({}));
+      throw new Error(errData.message || errData.error || "Could not geocode address. Please try a more specific address.");
     }
+
+    const geoJson = await geocodeRes.json();
+    const lat = parseFloat(geoJson.lat);
+    const lon = parseFloat(geoJson.lon);
 
     if (isNaN(lat) || isNaN(lon)) {
       throw new Error("Could not geocode address. Please try a more specific address.");
     }
+
+    // Daubert-defensible geocoding record — logged for audit trail
+    console.log(`Geocoded [${geoJson.locationType}]: ${geoJson.formattedAddress} → ${lat}, ${lon} · place_id: ${geoJson.placeId}`);
 
     const currentYear = new Date().getFullYear();
     const startDate = `${currentYear - 10}-01-01`;
