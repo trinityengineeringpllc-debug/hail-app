@@ -63,10 +63,12 @@ router.post("/signup", async (req, res) => {
     }
 
     const user = await User.create({ name, email, password });
-    const token = signToken(user._id);
-    setAuthCookie(res, token);
 
-    res.status(201).json({ success: true, token, user: { name: user.name, email: user.email } });
+    res.status(201).json({
+      success: true,
+      pending: true,
+      message: "Account created. Your account is pending approval. You'll be notified once it has been activated.",
+    });
   } catch (err) {
     res.status(500).json({ error: err.message || "Signup failed." });
   }
@@ -89,6 +91,13 @@ router.post("/login", async (req, res) => {
     const valid = await user.comparePassword(password);
     if (!valid) {
       return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    if (user.status && user.status !== "approved") {
+      const msg = user.status === "rejected"
+        ? "This account has been rejected. Please contact Trinity Engineering for assistance."
+        : "Your account is pending approval. You'll be notified once it has been activated.";
+      return res.status(403).json({ error: msg, pending: user.status === "pending" });
     }
 
     const token = signToken(user._id);
@@ -118,8 +127,12 @@ router.get("/session", async (req, res) => {
     const payload = verifyToken(token);
     if (!payload) return res.json({ authenticated: false });
 
-    const user = await User.findById(payload.sub).select("name email");
+    const user = await User.findById(payload.sub).select("name email status");
     if (!user) return res.json({ authenticated: false });
+
+    if (user.status && user.status !== "approved") {
+      return res.json({ authenticated: false });
+    }
 
     res.json({ authenticated: true, user: { name: user.name, email: user.email } });
   } catch {
@@ -241,6 +254,14 @@ router.post("/reset-password", async (req, res) => {
     user.resetToken = null;
     user.resetTokenExpiry = null;
     await user.save();
+
+    if (user.status && user.status !== "approved") {
+      return res.json({
+        success: true,
+        pending: true,
+        message: "Password updated. Your account is still pending approval. You'll be notified once it has been activated.",
+      });
+    }
 
     const jwtToken = signToken(user._id);
     setAuthCookie(res, jwtToken);
