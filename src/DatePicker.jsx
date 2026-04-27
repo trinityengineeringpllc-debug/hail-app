@@ -71,8 +71,12 @@ export default function DatePicker({ value, onChange, placeholder = "Date of Los
   });
 
   const containerRef = useRef(null);
+  const [yearView, setYearView] = useState(false);
+  const [yearGridStart, setYearGridStart] = useState(() => {
+    const y = value ? parseInt(value.split("-")[0]) : new Date().getFullYear();
+    return Math.floor(y / 12) * 12;
+  });
   const selectedDate = value ? (() => { const [y,m,d] = value.split("-"); return new Date(parseInt(y), parseInt(m)-1, parseInt(d)); })() : null;
-
   // Close on outside click
   useEffect(() => {
     function handler(e) {
@@ -194,19 +198,29 @@ export default function DatePicker({ value, onChange, placeholder = "Date of Los
                 <ChevronLeft size={18} />
               </motion.button>
 
-              <motion.div
+              <motion.button
                 key={`${month}-${year}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
+                whileHover={{ color: T.blueBright }}
+                onClick={() => {
+                  setYearGridStart(Math.floor(year / 12) * 12);
+                  setYearView((v) => !v);
+                }}
                 style={{
+                  background: "transparent",
+                  border: "none",
                   color: T.white,
                   fontWeight: 700,
                   fontSize: 15,
                   fontFamily: "Inter, Arial, sans-serif",
+                  cursor: "pointer",
+                  padding: "4px 10px",
+                  borderRadius: 6,
                 }}
               >
-                {MONTHS[month]} {year}
-              </motion.div>
+                {MONTHS[month]} {year} ▾
+              </motion.button>
 
               <motion.button
                 whileHover={{ scale: 1.15, color: T.blueBright }}
@@ -227,12 +241,83 @@ export default function DatePicker({ value, onChange, placeholder = "Date of Los
               </motion.button>
             </div>
 
+            {/* Year grid overlay */}
+            <AnimatePresence>
+              {yearView && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15 }}
+                  style={{ marginBottom: 8 }}
+                >
+                  {/* Year-grid nav (back/forward 12 years) */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <motion.button
+                      whileHover={{ scale: 1.15, color: T.blueBright }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setYearGridStart((s) => s - 12)}
+                      style={{ background: "transparent", border: "none", color: T.muted, cursor: "pointer", padding: 6, borderRadius: 6, display: "flex", alignItems: "center" }}
+                    >
+                      <ChevronLeft size={16} />
+                    </motion.button>
+                    <div style={{ color: T.muted, fontSize: 11, fontFamily: '"IBM Plex Mono", monospace', letterSpacing: "0.08em" }}>
+                      {yearGridStart} – {yearGridStart + 11}
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.15, color: T.blueBright }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setYearGridStart((s) => s + 12)}
+                      style={{ background: "transparent", border: "none", color: T.muted, cursor: "pointer", padding: 6, borderRadius: 6, display: "flex", alignItems: "center" }}
+                    >
+                      <ChevronRight size={16} />
+                    </motion.button>
+                  </div>
+
+                  {/* 4 x 3 grid of years */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                    {Array.from({ length: 12 }).map((_, i) => {
+                      const y = yearGridStart + i;
+                      const isSelected = y === year;
+                      return (
+                        <motion.button
+                          key={y}
+                          whileHover={{ scale: 1.06, backgroundColor: isSelected ? "#5e86f0" : "rgba(118,168,255,0.15)" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setViewDate(new Date(y, month, 1));
+                            setYearView(false);
+                          }}
+                          style={{
+                            background: isSelected ? T.button : "transparent",
+                            border: isSelected ? "none" : `1px solid ${T.borderSoft}`,
+                            borderRadius: 6,
+                            color: isSelected ? T.white : T.text,
+                            cursor: "pointer",
+                            fontFamily: '"IBM Plex Mono", monospace',
+                            fontSize: 13,
+                            padding: "10px 0",
+                            textAlign: "center",
+                            fontWeight: isSelected ? 700 : 400,
+                          }}
+                        >
+                          {y}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Day headers */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(7, 1fr)",
                 marginBottom: 6,
+                opacity: yearView ? 0.3 : 1,
+                pointerEvents: yearView ? "none" : "auto",
               }}
             >
               {DAYS.map((d) => (
@@ -253,7 +338,7 @@ export default function DatePicker({ value, onChange, placeholder = "Date of Los
             </div>
 
             {/* Day cells */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, opacity: yearView ? 0.3 : 1, pointerEvents: yearView ? "none" : "auto" }}>
               <AnimatePresence mode="wait">
                 {days.map((day, i) => {
                   const isSelected = day.isSelected;
