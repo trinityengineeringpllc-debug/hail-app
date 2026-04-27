@@ -421,6 +421,7 @@ export function SignupScreen({ onSignupSuccess, onGoLogin }) {
   const [confirm, setConfirm]   = useState("");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   async function handleSignup() {
     if (!name || !email || !password || !confirm) { setError("All fields are required."); return; }
@@ -431,6 +432,10 @@ export function SignupScreen({ onSignupSuccess, onGoLogin }) {
       const res  = await fetch(`${API}/api/auth/signup`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Signup failed.");
+      if (data.pending) {
+        setSubmitted(true);
+        return;
+      }
       if (data.token) localStorage.setItem("hail_token", data.token);
       onSignupSuccess(data.user);
     } catch (err) { setError(err.message); }
@@ -440,6 +445,39 @@ export function SignupScreen({ onSignupSuccess, onGoLogin }) {
   const strength = password.length < 8 ? { w: "25%", c: "#e05555", l: "Weak" }
                  : password.length < 12 ? { w: "60%", c: "#e09c35", l: "Good" }
                  : { w: "100%", c: "#4caf7e", l: "Strong" };
+
+  if (submitted) {
+    return (
+      <AuthPage>
+        <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.1 }}
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 64, height: 64, borderRadius: "50%",
+              background: "rgba(94,134,240,0.1)", border: `1px solid ${T.border}`,
+              marginBottom: 18,
+            }}
+          >
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#76a8ff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </motion.div>
+          <CardTitle title="Account submitted" subtitle="Pending approval" index={0} />
+          <motion.p custom={1} variants={itemVariants} initial="initial" animate="animate"
+            style={{ color: T.muted, fontSize: 13, margin: "0 0 24px", lineHeight: 1.7 }}
+          >
+            Thanks, <span style={{ color: T.blue, fontWeight: 600 }}>{name}</span>. Your account has been created and is now waiting for approval from Trinity Engineering. You'll be notified once it has been activated.
+          </motion.p>
+          <motion.div custom={2} variants={itemVariants} initial="initial" animate="animate">
+            <PrimaryBtn onClick={onGoLogin}>Back to sign in</PrimaryBtn>
+          </motion.div>
+        </div>
+      </AuthPage>
+    );
+  }
 
   return (
     <AuthPage>
