@@ -14,6 +14,11 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 8 },
     resetToken: { type: String, default: null },
     resetTokenExpiry: { type: Date, default: null },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
   },
   { timestamps: true }
 );
