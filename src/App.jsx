@@ -663,21 +663,15 @@ return (
                           <span style={{ color:"#eef3ff" }}>{h.maxSizeIn}"</span>
                         </div>
                         {(() => {
-                          const flRaw = typeof freezeLevelFt !== "undefined" ? freezeLevelFt : "UNDEFINED_VAR";
-                          const surface = (typeof freezeLevelFt !== "undefined" && freezeLevelFt)
+                          const surface = freezeLevelFt
                             ? meltingChartEstimate(parseFloat(h.maxSizeIn), freezeLevelFt)
                             : null;
-                          let debugText;
-                          if (flRaw === "UNDEFINED_VAR") debugText = "FL var missing";
-                          else if (flRaw == null)        debugText = "FL=null";
-                          else if (surface == null)      debugText = `calc=null FL=${flRaw}`;
-                          else                           debugText = `${surface}"`;
-                          return (
+                          return surface != null ? (
                             <div style={{ textAlign:"right" }}>
                               <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>est. surface</div>
-                              <span style={{ color:"#8db7ff" }}>{debugText}</span>
+                              <span style={{ color:"#8db7ff" }}>{surface}"</span>
                             </div>
-                          );
+                          ) : null;
                         })()}
                         <div style={{ textAlign:"right" }}>
                           <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>dist</div>
@@ -3348,7 +3342,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
                   nexradHits={nexradHits}
                   dateOfLoss={dateOfLoss}
                   idwResult={idwResult}
-                  freezeLevelFt={idwResult?.freezeLevelFt || null}
+                  freezeLevelFt={freezeLevelFt}
                   inspections={hailMapInspections}
                 />
               </div>
@@ -3540,7 +3534,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
-            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={idwResult?.freezeLevelFt || null} inspections={hailMapInspections} />
+            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} inspections={hailMapInspections} />
             </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
