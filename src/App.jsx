@@ -663,15 +663,21 @@ return (
                           <span style={{ color:"#eef3ff" }}>{h.maxSizeIn}"</span>
                         </div>
                         {(() => {
-                          const surface = freezeLevelFt
+                          const flRaw = typeof freezeLevelFt !== "undefined" ? freezeLevelFt : "UNDEFINED_VAR";
+                          const surface = (typeof freezeLevelFt !== "undefined" && freezeLevelFt)
                             ? meltingChartEstimate(parseFloat(h.maxSizeIn), freezeLevelFt)
                             : null;
-                          return surface != null ? (
+                          let debugText;
+                          if (flRaw === "UNDEFINED_VAR") debugText = "FL var missing";
+                          else if (flRaw == null)        debugText = "FL=null";
+                          else if (surface == null)      debugText = `calc=null FL=${flRaw}`;
+                          else                           debugText = `${surface}"`;
+                          return (
                             <div style={{ textAlign:"right" }}>
                               <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>est. surface</div>
-                              <span style={{ color:"#8db7ff" }}>{surface}"</span>
+                              <span style={{ color:"#8db7ff" }}>{debugText}</span>
                             </div>
-                          ) : null;
+                          );
                         })()}
                         <div style={{ textAlign:"right" }}>
                           <div style={{ fontSize:6, color:"#4d6797", marginBottom:1 }}>dist</div>
