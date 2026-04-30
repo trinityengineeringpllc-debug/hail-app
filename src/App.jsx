@@ -2967,7 +2967,14 @@ setPropCoords({ lat, lon });
 setFreezeLevelFt(freezingLevelData?.freezeLevelFt || null);
 setCorroboration({ stormEventsHailCount: dolHailCount, lsrCount: dolLsrCount });
 
-if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2) {
+if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations.length >= 2) {
+      // Use backend-formatted stations directly from /api/stations.
+      // Do NOT use parsed.stations (the Claude-rewritten copy) — Claude
+      // sometimes drops windSpeedMph / windGustMph fields, producing NaN
+      // wind values and NaN weight percentages in the IDW panel. The
+      // backend already maps Visual Crossing per-station obs with
+      // day-level fallback, so this is also more Daubert-defensible
+      // (deterministic API → field mapping, no LLM transformation).
       const dolNexradHit = nexradData?.hits?.find(h => {
         const hDate = h.date;
         const [dolYear, dolMonth, dolDay] = dateOfLoss.split("-").map(Number);
@@ -2976,7 +2983,7 @@ if (dateOfLoss && Array.isArray(parsed?.stations) && parsed.stations.length >= 2
         return hDate === hDateFormatted;
       });
       const freezeLevelFt = freezingLevelData?.freezeLevelFt || null;
-      const idw = runIDW(lat, lon, parsed.stations, dolNexradHit || null, 2, freezeLevelFt);
+      const idw = runIDW(lat, lon, stationsData.stations, dolNexradHit || null, 2, freezeLevelFt);
       setIdwResult(idw);
     }
 
