@@ -3173,21 +3173,35 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         { align: "center" }
       );
 
-      // ── 2. 10-year NEXRAD map page ───────────────────────────────────────
+      // ── 2. 10-year NEXRAD map page (capture at natural height, embed at aspect ratio) ──
       if (mapPageRef.current) {
+        const mapNode = mapPageRef.current;
         await new Promise(function(resolve) { setTimeout(resolve, 1200); });
-        const mapCanvas = await html2canvas(mapPageRef.current, {
+        const mapCanvas = await html2canvas(mapNode, {
           backgroundColor: theme.pageBg,
           scale: 1.5,
           useCORS: true,
           logging: false,
           windowWidth: PAGE_W,
-          windowHeight: PAGE_H,
+          windowHeight: mapNode.scrollHeight || PAGE_H,
+          width: PAGE_W,
+          height: mapNode.scrollHeight || PAGE_H,
         });
+        const mapImg = mapCanvas.toDataURL("image/jpeg", 0.72);
+        const mapRatio = mapCanvas.height / mapCanvas.width;
+        const mapEmbedH = pdfW * mapRatio;
         pdf.addPage();
         pdf.setFillColor(3, 7, 15);
         pdf.rect(0, 0, pdfW, pdfH, "F");
-        pdf.addImage(mapCanvas.toDataURL("image/jpeg", 0.72), "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
+        if (mapEmbedH <= pdfH) {
+          // Fits on one page — embed at natural aspect ratio
+          pdf.addImage(mapImg, "JPEG", 0, 0, pdfW, mapEmbedH, undefined, "FAST");
+        } else {
+          // Too tall — scale down to fit one page (don't slice maps in half)
+          const scaledW = pdfH / mapRatio;
+          const xOffset = (pdfW - scaledW) / 2;
+          pdf.addImage(mapImg, "JPEG", xOffset, 0, scaledW, pdfH, undefined, "FAST");
+        }
       }
 
       // ── 3. DOL NEXRAD map page (only if DOL set) ─────────────────────────
@@ -3950,13 +3964,13 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               ))}
             {/* Hidden Map PDF page */}
             {normalized && (
-              <div ref={mapPageRef} style={{ width:PAGE_W, height:PAGE_H }}>
+              <div ref={mapPageRef} style={{ width:PAGE_W }}>
                 <HailMapPage data={normalized} nexradHits={nexradHits} inspections={hailMapInspections} />
               </div>
             )}
             {/* Hidden DOL Map PDF page */}
             {idwResult && dateOfLoss && (
-              <div ref={dolMapPdfRef} style={{ width:PAGE_W, minHeight:PAGE_H, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box" }}>
+              <div ref={dolMapPdfRef} style={{ width:PAGE_W, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box" }}>
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
