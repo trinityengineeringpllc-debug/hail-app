@@ -3060,7 +3060,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       pdf.setFontSize(10);
       pdf.setTextColor(126, 162, 223);
       pdf.text("Trinity Engineering, PLLC  ·  Forensic Storm Report", margin, y);
-      y += 18;
+      y += 26;
 
       // Property address — large headline
       pdf.setFont("helvetica", "bold");
@@ -3069,7 +3069,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       const addrText = String(normalized.location.address || "");
       const addrLines = pdf.splitTextToSize(addrText, pdfW - margin * 2);
       pdf.text(addrLines, margin, y);
-      y += addrLines.length * 22 + 8;
+      y += addrLines.length * 22 + 2;
 
       // County / coords sub-line
       pdf.setFont("helvetica", "normal");
