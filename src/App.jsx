@@ -3261,23 +3261,294 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         }
       }
 
-      // ── 5. Events tables pages (everything after the cover) ──────────────
-      for (let i = 1; i < pages.length; i += 1) {
-        const node = pageRefs.current[i];
-        if (!node) continue;
-        const canvas = await html2canvas(node, {
-          backgroundColor: theme.pageBg,
-          scale: 1.5,
-          useCORS: true,
-          logging: false,
-          windowWidth: PAGE_W,
-          windowHeight: PAGE_H,
-        });
-        const img = canvas.toDataURL("image/jpeg", 0.72);
-        pdf.addPage();
-        pdf.setFillColor(3, 7, 15);
+      // ── 5. Events tables + Sources (NATIVE — light theme, real text) ──────
+      // Auto-paint a white background on every new page added from here on.
+      pdf.internal.events.subscribe("addPage", function () {
+        pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, pdfW, pdfH, "F");
-        pdf.addImage(img, "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
+      });
+
+      // Add the first events-section page (white bg painted by the subscriber)
+      pdf.addPage();
+
+      const tableMargin = 36;
+      let tableY = tableMargin + 18;
+
+      const propLatNum = parseFloat(normalized.location.lat || 0);
+      const propLonNum = parseFloat(normalized.location.lon || 0);
+
+      // ─── Hail Events title + footnote ────────────────────────────────────
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.setTextColor(15, 23, 42);
+      pdf.text("Hail Events — Past 10 Years", tableMargin, tableY);
+      tableY += 12;
+
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(100, 116, 139);
+      const hailNote = pdf.splitTextToSize(
+        'All hail sizes represent maximum detection aloft by WSR-88D radar per FMH-11 Part C §2.18. Ground-level size may differ due to melting during descent.',
+        pdfW - tableMargin * 2
+      );
+      pdf.text(hailNote, tableMargin, tableY);
+      tableY += hailNote.length * 9 + 6;
+
+      // ─── Hail Events table body ──────────────────────────────────────────
+      const hailRows = normalized.hailEvents || [];
+
+      if (hailRows.length === 0) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("No hail events returned.", tableMargin, tableY + 14);
+        tableY += 30;
+      } else {
+        // Build cell text — autoTable uses this to compute row heights;
+        // we re-render the size column manually in didDrawCell with colors.
+        const hailBody = hailRows.map(function (r) {
+          const sizeVal = r.size || "N/A";
+          const tagText = r.nexradCorroboration ? (r.nexradOnly ? "Radar Only" : "Corroborated") : "";
+          let content = tagText ? `${sizeVal}  ${tagText}` : sizeVal;
+          if (r.nexradCorroboration) {
+            const corroSuffix = r.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (independent radar detection)";
+            const radarSuffix = r.nexradCorroboration.radar ? ` · ${r.nexradCorroboration.radar}` : "";
+            content += `\nNEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`;
+            if (r.nexradCorroboration.probHail != null || r.nexradCorroboration.probSevere != null) {
+              let pohText = "";
+              if (r.nexradCorroboration.probHail != null) pohText += `POH: ${r.nexradCorroboration.probHail}%`;
+              if (r.nexradCorroboration.probHail != null && r.nexradCorroboration.probSevere != null) pohText += " · ";
+              if (r.nexradCorroboration.probSevere != null) pohText += `POSH: ${r.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface)`;
+              content += `\n${pohText}`;
+            }
+            const geo = r.nexradCorroboration.radar ? getBeamGeometry(propLatNum, propLonNum, r.nexradCorroboration.radar) : null;
+            if (geo) {
+              content += `\n${geo.radarId} · ${geo.distMi} mi · beam center ${geo.beamCenter} ft (${geo.reliability}) · per FMH-11 Part B`;
+            }
+          }
+          return [formatDate(r.date), content, r.location || "N/A"];
+        });
+
+        autoTable(pdf, {
+          head: [["Date", "Size & Corroboration", "Location"]],
+          body: hailBody,
+          startY: tableY,
+          theme: "grid",
+          margin: { left: tableMargin, right: tableMargin, top: tableMargin, bottom: tableMargin },
+          styles: {
+            font: "helvetica",
+            fontSize: 8,
+            cellPadding: 5,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.5,
+            textColor: [15, 23, 42],
+            overflow: "linebreak",
+            valign: "top",
+          },
+          headStyles: {
+            fillColor: [248, 250, 252],
+            textColor: [100, 116, 139],
+            fontStyle: "bold",
+            fontSize: 7.5,
+            cellPadding: 6,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.5,
+          },
+          columnStyles: {
+            0: { cellWidth: 70, font: "courier", fontSize: 8.5 },
+            1: { cellWidth: "auto" },
+            2: { cellWidth: 110, font: "courier", fontSize: 8.5 },
+          },
+          willDrawCell: function (data) {
+            // Skip default text rendering for the Size & Corroboration cell;
+            // we paint it ourselves in didDrawCell with multi-color content.
+            if (data.section === "body" && data.column.index === 1) {
+              data.cell.text = [];
+            }
+          },
+          didDrawCell: function (data) {
+            if (data.section !== "body" || data.column.index !== 1) return;
+            const r = hailRows[data.row.index];
+            if (!r) return;
+            const cellPad = 5;
+            const x = data.cell.x + cellPad;
+            let yy = data.cell.y + cellPad + 7;
+            const maxWidth = data.cell.width - cellPad * 2;
+
+            // Line 1 — size value (bold dark amber) + corroboration pill
+            const sizeVal = r.size || "N/A";
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(9.5);
+            pdf.setTextColor(180, 83, 9);
+            pdf.text(sizeVal, x, yy);
+
+            if (r.nexradCorroboration) {
+              const sizeWidth = pdf.getTextWidth(sizeVal);
+              const tagLabel = r.nexradOnly ? "Radar Only" : "Corroborated";
+              const tagFill = r.nexradOnly ? [254, 243, 199] : [220, 252, 231];
+              const tagBorder = r.nexradOnly ? [252, 211, 77] : [134, 239, 172];
+              const tagInk = r.nexradOnly ? [180, 83, 9] : [21, 128, 61];
+
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(6.5);
+              const tagTextWidth = pdf.getTextWidth(tagLabel);
+              const tagW = tagTextWidth + 8;
+              const tagH = 9;
+              const tagX = x + sizeWidth + 6;
+              const tagY = yy - 7;
+              pdf.setFillColor(tagFill[0], tagFill[1], tagFill[2]);
+              pdf.setDrawColor(tagBorder[0], tagBorder[1], tagBorder[2]);
+              pdf.setLineWidth(0.4);
+              pdf.roundedRect(tagX, tagY, tagW, tagH, 1.5, 1.5, "FD");
+              pdf.setTextColor(tagInk[0], tagInk[1], tagInk[2]);
+              pdf.text(tagLabel, tagX + 4, tagY + 6.5);
+            }
+            yy += 11;
+
+            if (r.nexradCorroboration) {
+              // Line 2 — NEXRAD aloft (forest green if corroborated, slate if not)
+              const isCorr = r.nexradCorroboration.corroborated;
+              pdf.setFont("helvetica", "normal");
+              pdf.setFontSize(7);
+              if (isCorr) pdf.setTextColor(21, 128, 61);
+              else pdf.setTextColor(71, 85, 105);
+              const corroSuffix = isCorr ? " ✓ Corroborated" : " (independent radar detection)";
+              const radarSuffix = r.nexradCorroboration.radar ? ` · ${r.nexradCorroboration.radar}` : "";
+              const nexradText = `NEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`;
+              const nexradLines = pdf.splitTextToSize(nexradText, maxWidth);
+              pdf.text(nexradLines, x, yy);
+              yy += nexradLines.length * 8;
+
+              // Line 3 — POH/POSH (dark navy)
+              if (r.nexradCorroboration.probHail != null || r.nexradCorroboration.probSevere != null) {
+                pdf.setTextColor(12, 74, 110);
+                let pohText = "";
+                if (r.nexradCorroboration.probHail != null) pohText += `POH: ${r.nexradCorroboration.probHail}%`;
+                if (r.nexradCorroboration.probHail != null && r.nexradCorroboration.probSevere != null) pohText += " · ";
+                if (r.nexradCorroboration.probSevere != null) pohText += `POSH: ${r.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface)`;
+                const pohLines = pdf.splitTextToSize(pohText, maxWidth);
+                pdf.text(pohLines, x, yy);
+                yy += pohLines.length * 8;
+              }
+
+              // Line 4 — beam geometry (color by reliability)
+              const geo = r.nexradCorroboration.radar ? getBeamGeometry(propLatNum, propLonNum, r.nexradCorroboration.radar) : null;
+              if (geo) {
+                if (geo.reliability === "reliable") pdf.setTextColor(21, 128, 61);
+                else if (geo.reliability === "marginal") pdf.setTextColor(180, 83, 9);
+                else pdf.setTextColor(185, 28, 28);
+                const geoText = `${geo.radarId} · ${geo.distMi} mi · beam center ${geo.beamCenter} ft (${geo.reliability}) · per FMH-11 Part B`;
+                const geoLines = pdf.splitTextToSize(geoText, maxWidth);
+                pdf.text(geoLines, x, yy);
+              }
+            }
+          },
+        });
+
+        tableY = pdf.lastAutoTable.finalY + 22;
+      }
+
+      // ─── Other Severe Weather Events title + table ───────────────────────
+      const otherRows = normalized.otherEvents || [];
+
+      if (tableY > pdfH - 90) {
+        pdf.addPage();
+        tableY = tableMargin + 18;
+      }
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.setTextColor(15, 23, 42);
+      pdf.text("Other Severe Weather Events", tableMargin, tableY);
+      tableY += 10;
+
+      if (otherRows.length === 0) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("No additional severe weather events returned.", tableMargin, tableY + 14);
+        tableY += 30;
+      } else {
+        autoTable(pdf, {
+          head: [["Date", "Type", "Location", "Description", "Damage"]],
+          body: otherRows.map(function (r) {
+            return [
+              formatDate(r.date),
+              r.type || "N/A",
+              r.location || "N/A",
+              r.description || "N/A",
+              r.damage || "N/A",
+            ];
+          }),
+          startY: tableY,
+          theme: "grid",
+          margin: { left: tableMargin, right: tableMargin, top: tableMargin, bottom: tableMargin },
+          styles: {
+            font: "helvetica",
+            fontSize: 8,
+            cellPadding: 5,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.5,
+            textColor: [15, 23, 42],
+            overflow: "linebreak",
+            valign: "top",
+          },
+          headStyles: {
+            fillColor: [248, 250, 252],
+            textColor: [100, 116, 139],
+            fontStyle: "bold",
+            fontSize: 7.5,
+            cellPadding: 6,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.5,
+          },
+          columnStyles: {
+            0: { cellWidth: 70, font: "courier", fontSize: 8.5 },
+            1: { cellWidth: 70, fontStyle: "bold", textColor: [107, 33, 168] },
+            2: { cellWidth: 90, font: "courier", fontSize: 8 },
+            3: { cellWidth: "auto" },
+            4: { cellWidth: 60, textColor: [185, 28, 28] },
+          },
+        });
+
+        tableY = pdf.lastAutoTable.finalY + 22;
+      }
+
+      // ─── Data Sources block ──────────────────────────────────────────────
+      const sourcesArr = normalized.sources || [];
+
+      if (tableY > pdfH - 80) {
+        pdf.addPage();
+        tableY = tableMargin + 18;
+      }
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.setTextColor(15, 23, 42);
+      pdf.text("Data Sources", tableMargin, tableY);
+      tableY += 16;
+
+      if (sourcesArr.length === 0) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(100, 116, 139);
+        pdf.text("No source links returned.", tableMargin, tableY);
+      } else {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8.5);
+        for (const s of sourcesArr) {
+          const wrapped = pdf.splitTextToSize(`↗ ${s}`, pdfW - tableMargin * 2);
+          const blockHeight = wrapped.length * 11 + 4;
+          if (tableY + blockHeight > pdfH - tableMargin) {
+            pdf.addPage();
+            tableY = tableMargin + 18;
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(8.5);
+          }
+          pdf.setTextColor(23, 50, 145);
+          pdf.text(wrapped, tableMargin, tableY);
+          tableY += blockHeight;
+        }
       }
 
       const countyName = String(normalized.location.county || "report")
