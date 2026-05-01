@@ -366,7 +366,7 @@ function HailMapPage({ data, nexradHits = [], inspections = [], preview = false 
   );
 }
 // ── DOL NEXRAD Map (recent hail history, date-colored) ───────────────────────
-function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null, inspections = [] }) {
+function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null, inspections = [], mapOnly = false }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
 
@@ -618,7 +618,8 @@ return (
           <svg ref={svgRef} width={MAP_W} height={MAP_H} style={{ display: mapStatus==="ready" ? "block" : "none" }} />
         </div>
 
-        {/* Hit list panel — below map */}
+        {/* Hit list panel — below map (hidden when mapOnly) */}
+        {!mapOnly && (
         <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, padding:"10px 12px", fontFamily:'"IBM Plex Mono", monospace', fontSize:9 }}>
           {(() => {
             // Attach distance to each hit
@@ -763,6 +764,7 @@ return (
             );
           })()}
         </div>
+        )}
     </div>
   );
 }
@@ -3240,6 +3242,227 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         }
       }
 
+      // ── 3b. DOL data tables (NEXRAD hits + Inspections) — NATIVE dark theme ──
+      if (idwResult && dateOfLoss && Array.isArray(nexradHits) && nexradHits.length > 0) {
+        // Auto-paint dark navy bg on any new pages added during these tables
+        pdf.internal.events.subscribe("addPage", function () {
+          pdf.setFillColor(3, 7, 15);
+          pdf.rect(0, 0, pdfW, pdfH, "F");
+        });
+
+        const dolPropLat = parseFloat(normalized.location.lat || 0);
+        const dolPropLon = parseFloat(normalized.location.lon || 0);
+
+        // Parse DOL date
+        const [dolYr, dolMo, dolDy] = dateOfLoss.split("-").map(Number);
+        const dolMonths = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const dolFormattedStr = `${String(dolDy).padStart(2,"0")}-${dolMonths[dolMo-1]}-${dolYr}`;
+        const dolDateObj = new Date(dolYr, dolMo - 1, dolDy);
+        const oneYearBefore = new Date(dolDateObj.getTime() - 365 * 24 * 60 * 60 * 1000);
+        const today = new Date();
+
+        // Classify hits within 1yr-before to today; compute distance + surface size
+        const hitsForTable = (nexradHits || []).map(function (h) {
+          if (!h.date) return null;
+          const parts = h.date.split("-");
+          if (parts.length !== 3) return null;
+          const monthIdx = dolMonths.indexOf(parts[1]);
+          if (monthIdx === -1) return null;
+          const hDate = new Date(parseInt(parts[2]), monthIdx, parseInt(parts[0]));
+          if (hDate < oneYearBefore || hDate > today) return null;
+
+          let category;
+          if (h.date === dolFormattedStr) category = "DOL";
+          else if (hDate < dolDateObj) category = "Prior";
+          else category = "Post";
+
+          const dLat = ((parseFloat(h.lat) - dolPropLat) * Math.PI) / 180;
+          const dLon = ((parseFloat(h.lon) - dolPropLon) * Math.PI) / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(dolPropLat * Math.PI / 180) * Math.cos(parseFloat(h.lat) * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+          const distMi = 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+          const surface = freezeLevelFt ? meltingChartEstimate(parseFloat(h.maxSizeIn), freezeLevelFt) : null;
+          const labelDate = `${parts[2]}.${String(monthIdx + 1).padStart(2, "0")}.${parts[0].padStart(2, "0")}`;
+
+          return {
+            labelDate: labelDate,
+            category: category,
+            aloftIn: h.maxSizeIn,
+            surfaceIn: surface,
+            distMi: distMi,
+            radar: h.radar || "",
+          };
+        }).filter(function (x) { return x !== null; }).sort(function (a, b) { return a.distMi - b.distMi; });
+
+        if (hitsForTable.length > 0) {
+          // New page for the data tables
+          pdf.addPage();
+
+          const dtMargin = 36;
+          let dtY = dtMargin + 18;
+
+          // Section title
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(13);
+          pdf.setTextColor(238, 243, 255);
+          pdf.text("DOL NEXRAD Hits — Sorted by Distance", dtMargin, dtY);
+          dtY += 12;
+
+          // Subtitle
+          pdf.setFont("helvetica", "italic");
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(126, 162, 223);
+          const dtNote = pdf.splitTextToSize(
+            `${hitsForTable.length} NEXRAD detection${hitsForTable.length !== 1 ? "s" : ""} from one year before DOL through today. Aloft sizes per WSR-88D HDA (FMH-11 Part C §2.18). Surface sizes estimated via Knight (1981) using radiosonde freezing level.`,
+            pdfW - dtMargin * 2
+          );
+          pdf.text(dtNote, dtMargin, dtY);
+          dtY += dtNote.length * 9 + 6;
+
+          autoTable(pdf, {
+            head: [["Date", "Category", "Aloft", "Est. Surface", "Radar", "Distance"]],
+            body: hitsForTable.map(function (h) {
+              return [
+                h.labelDate,
+                h.category,
+                `${h.aloftIn}"`,
+                h.surfaceIn != null ? `${h.surfaceIn}"` : "—",
+                h.radar || "—",
+                `${h.distMi.toFixed(1)} mi`,
+              ];
+            }),
+            startY: dtY,
+            theme: "grid",
+            margin: { left: dtMargin, right: dtMargin, top: dtMargin, bottom: dtMargin },
+            styles: {
+              font: "helvetica",
+              fontSize: 8,
+              cellPadding: 5,
+              lineColor: [16, 34, 64],
+              lineWidth: 0.5,
+              textColor: [238, 243, 255],
+              fillColor: [5, 11, 20],
+              overflow: "linebreak",
+              valign: "top",
+            },
+            headStyles: {
+              fillColor: [5, 11, 20],
+              textColor: [126, 162, 223],
+              fontStyle: "bold",
+              fontSize: 7.5,
+              cellPadding: 6,
+              lineColor: [16, 34, 64],
+              lineWidth: 0.5,
+            },
+            columnStyles: {
+              0: { cellWidth: 75, font: "courier", fontSize: 8.5 },
+              1: { cellWidth: 55, fontStyle: "bold" },
+              2: { cellWidth: 50, font: "courier", fontSize: 8.5, textColor: [255, 203, 84] },
+              3: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: [141, 183, 255] },
+              4: { cellWidth: 55, font: "courier", fontSize: 8.5 },
+              5: { cellWidth: "auto", font: "courier", fontSize: 8.5 },
+            },
+            didParseCell: function (data) {
+              if (data.section === "body" && data.column.index === 1) {
+                const cat = data.cell.raw;
+                if (cat === "DOL") data.cell.styles.textColor = [0, 220, 255];
+                else if (cat === "Prior") data.cell.styles.textColor = [255, 176, 77];
+                else if (cat === "Post") data.cell.styles.textColor = [255, 100, 80];
+              }
+            },
+          });
+
+          // Inspections table (if any)
+          let inspY = pdf.lastAutoTable.finalY + 22;
+
+          if (Array.isArray(hailMapInspections) && hailMapInspections.length > 0) {
+            const inspForTable = hailMapInspections.map(function (insp) {
+              if (insp.lat == null || insp.lon == null) return null;
+              const dLat = ((insp.lat - dolPropLat) * Math.PI) / 180;
+              const dLon = ((insp.lon - dolPropLon) * Math.PI) / 180;
+              const a = Math.sin(dLat / 2) ** 2 + Math.cos(dolPropLat * Math.PI / 180) * Math.cos(insp.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+              const distMi = 3958.8 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              if (distMi > 50) return null;
+              const inspDateObj = insp.inspectionDate ? new Date(insp.inspectionDate) : null;
+              const validDate = inspDateObj && !isNaN(inspDateObj.getTime());
+              const category = !validDate ? "—" : (inspDateObj <= dolDateObj ? "Prior" : "Post");
+              return {
+                inspectionDate: insp.inspectionDate || "—",
+                category: category,
+                dentsSizeIn: insp.dentsSizeIn,
+                spatterSizeIn: insp.spatterSizeIn,
+                distMi: distMi,
+              };
+            }).filter(function (x) { return x !== null; }).sort(function (a, b) { return a.distMi - b.distMi; });
+
+            if (inspForTable.length > 0) {
+              if (inspY > pdfH - 100) {
+                pdf.addPage();
+                inspY = dtMargin + 18;
+              }
+
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(13);
+              pdf.setTextColor(238, 243, 255);
+              pdf.text("PE-Verified Inspections — Within 50 mi", dtMargin, inspY);
+              inspY += 12;
+
+              pdf.setFont("helvetica", "italic");
+              pdf.setFontSize(7.5);
+              pdf.setTextColor(126, 162, 223);
+              pdf.text(
+                `${inspForTable.length} field inspection${inspForTable.length !== 1 ? "s" : ""} verified by Trinity Engineering, PLLC`,
+                dtMargin, inspY
+              );
+              inspY += 12;
+
+              autoTable(pdf, {
+                head: [["Date", "Category", "Dents Size", "Spatter Size", "Distance"]],
+                body: inspForTable.map(function (insp) {
+                  return [
+                    insp.inspectionDate,
+                    insp.category,
+                    insp.dentsSizeIn != null ? `${insp.dentsSizeIn}"` : "—",
+                    insp.spatterSizeIn != null ? `${insp.spatterSizeIn}"` : "—",
+                    `${insp.distMi.toFixed(1)} mi`,
+                  ];
+                }),
+                startY: inspY,
+                theme: "grid",
+                margin: { left: dtMargin, right: dtMargin, top: dtMargin, bottom: dtMargin },
+                styles: {
+                  font: "helvetica",
+                  fontSize: 8,
+                  cellPadding: 5,
+                  lineColor: [16, 34, 64],
+                  lineWidth: 0.5,
+                  textColor: [238, 243, 255],
+                  fillColor: [5, 11, 20],
+                  overflow: "linebreak",
+                  valign: "top",
+                },
+                headStyles: {
+                  fillColor: [5, 11, 20],
+                  textColor: [126, 162, 223],
+                  fontStyle: "bold",
+                  fontSize: 7.5,
+                  cellPadding: 6,
+                  lineColor: [16, 34, 64],
+                  lineWidth: 0.5,
+                },
+                columnStyles: {
+                  0: { cellWidth: 90, font: "courier", fontSize: 8.5 },
+                  1: { cellWidth: 60, fontStyle: "bold", textColor: [118, 168, 255] },
+                  2: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: [141, 183, 255] },
+                  3: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: [141, 183, 255] },
+                  4: { cellWidth: "auto", font: "courier", fontSize: 8.5 },
+                },
+              });
+            }
+          }
+        }
+      }
+
       // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
       if (idwResult && idwPdfRef.current) {
         const idwNode = idwPdfRef.current;
@@ -3974,7 +4197,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
-            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} inspections={hailMapInspections} />
+            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} inspections={hailMapInspections} mapOnly />
             </div>
             )}
             {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
