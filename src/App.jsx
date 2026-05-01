@@ -3041,7 +3041,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           img.onerror = reject;
           img.src = "/swi-logo.png";
         });
-        const logoW = 240; // points wide on the page
+        const logoW = 320; // points wide on the page
         const logoH = (logoData.h / logoData.w) * logoW;
         const logoX = (pdfW - logoW) / 2;
         pdf.addImage(logoData.dataUrl, "PNG", logoX, y, logoW, logoH);
@@ -3057,10 +3057,10 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
       // Trinity Engineering subtitle (left-aligned breadcrumb above address)
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(77, 103, 151);
+      pdf.setFontSize(10);
+      pdf.setTextColor(126, 162, 223);
       pdf.text("Trinity Engineering, PLLC  ·  Forensic Storm Report", margin, y);
-      y += 22;
+      y += 18;
 
       // Property address — large headline
       pdf.setFont("helvetica", "bold");
@@ -3073,11 +3073,11 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
       // County / coords sub-line
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.setTextColor(140, 165, 200);
+      pdf.setFontSize(11);
+      pdf.setTextColor(126, 162, 223);
       const coordsText = `${normalized.location.county || ""}  ·  ${parseFloat(normalized.location.lat || 0).toFixed(4)}°, ${parseFloat(normalized.location.lon || 0).toFixed(4)}°`;
       pdf.text(coordsText, margin, y);
-      y += 24;
+      y += 22;
 
       // Divider
       pdf.setDrawColor(23, 50, 95);
