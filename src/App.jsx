@@ -3311,14 +3311,14 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           const tagText = r.nexradCorroboration ? (r.nexradOnly ? "Radar Only" : "Corroborated") : "";
           let content = tagText ? `${sizeVal}  ${tagText}` : sizeVal;
           if (r.nexradCorroboration) {
-            const corroSuffix = r.nexradCorroboration.corroborated ? " ✓ Corroborated" : " (independent radar detection)";
+            const corroSuffix = r.nexradCorroboration.corroborated ? " (Corroborated)" : " (independent radar detection)";
             const radarSuffix = r.nexradCorroboration.radar ? ` · ${r.nexradCorroboration.radar}` : "";
             content += `\nNEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`;
             if (r.nexradCorroboration.probHail != null || r.nexradCorroboration.probSevere != null) {
               let pohText = "";
               if (r.nexradCorroboration.probHail != null) pohText += `POH: ${r.nexradCorroboration.probHail}%`;
               if (r.nexradCorroboration.probHail != null && r.nexradCorroboration.probSevere != null) pohText += " · ";
-              if (r.nexradCorroboration.probSevere != null) pohText += `POSH: ${r.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface)`;
+              if (r.nexradCorroboration.probSevere != null) pohText += `POSH: ${r.nexradCorroboration.probSevere}% (prob. severe hail >= 0.75" at surface)`;
               content += `\n${pohText}`;
             }
             const geo = r.nexradCorroboration.radar ? getBeamGeometry(propLatNum, propLonNum, r.nexradCorroboration.radar) : null;
@@ -3412,7 +3412,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               pdf.setFontSize(7);
               if (isCorr) pdf.setTextColor(21, 128, 61);
               else pdf.setTextColor(71, 85, 105);
-              const corroSuffix = isCorr ? " ✓ Corroborated" : " (independent radar detection)";
+              const corroSuffix = isCorr ? " (Corroborated)" : " (independent radar detection)";
               const radarSuffix = r.nexradCorroboration.radar ? ` · ${r.nexradCorroboration.radar}` : "";
               const nexradText = `NEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`;
               const nexradLines = pdf.splitTextToSize(nexradText, maxWidth);
@@ -3425,7 +3425,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                 let pohText = "";
                 if (r.nexradCorroboration.probHail != null) pohText += `POH: ${r.nexradCorroboration.probHail}%`;
                 if (r.nexradCorroboration.probHail != null && r.nexradCorroboration.probSevere != null) pohText += " · ";
-                if (r.nexradCorroboration.probSevere != null) pohText += `POSH: ${r.nexradCorroboration.probSevere}% (prob. severe hail ≥ 0.75" at surface)`;
+                if (r.nexradCorroboration.probSevere != null) pohText += `POSH: ${r.nexradCorroboration.probSevere}% (prob. severe hail >= 0.75" at surface)`;
                 const pohLines = pdf.splitTextToSize(pohText, maxWidth);
                 pdf.text(pohLines, x, yy);
                 yy += pohLines.length * 8;
@@ -3536,8 +3536,9 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       } else {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(8.5);
-        for (const s of sourcesArr) {
-          const wrapped = pdf.splitTextToSize(`↗ ${s}`, pdfW - tableMargin * 2);
+        for (let si = 0; si < sourcesArr.length; si++) {
+          const s = sourcesArr[si];
+          const wrapped = pdf.splitTextToSize(`${si + 1}.  ${s}`, pdfW - tableMargin * 2);
           const blockHeight = wrapped.length * 11 + 4;
           if (tableY + blockHeight > pdfH - tableMargin) {
             pdf.addPage();
