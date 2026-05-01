@@ -3039,7 +3039,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             });
           };
           img.onerror = reject;
-          img.src = "/swi-logo.png";
+          img.src = "/SWI_Triangle_Horizontal.png";
         });
         const logoW = 320; // points wide on the page
         const logoH = (logoData.h / logoData.w) * logoW;
