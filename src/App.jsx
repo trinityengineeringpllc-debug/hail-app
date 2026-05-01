@@ -3013,21 +3013,140 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       const pdfW = pdf.internal.pageSize.getWidth();
       const pdfH = pdf.internal.pageSize.getHeight();
 
-      // ── 1. Cover page (first measured page = intro only) ─────────────────
-      const coverNode = pageRefs.current[0];
-      if (coverNode) {
-        const coverCanvas = await html2canvas(coverNode, {
-          backgroundColor: theme.pageBg,
-          scale: 1.5,
-          useCORS: true,
-          logging: false,
-          windowWidth: PAGE_W,
-          windowHeight: PAGE_H,
-        });
-        pdf.setFillColor(3, 7, 15);
-        pdf.rect(0, 0, pdfW, pdfH, "F");
-        pdf.addImage(coverCanvas.toDataURL("image/jpeg", 0.72), "JPEG", 0, 0, pdfW, pdfH, undefined, "FAST");
+      // ── 1. Cover page (NATIVE TEXT — real selectable text, not a screenshot) ─
+      // Background
+      pdf.setFillColor(3, 7, 15);
+      pdf.rect(0, 0, pdfW, pdfH, "F");
+
+      const margin = 40;
+      let y = margin;
+
+      // Header band — "SEVERE WEATHER INTELLIGENCE"
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(120, 144, 184);
+      pdf.text("SEVERE WEATHER INTELLIGENCE", margin, y, { charSpace: 1.5 });
+      y += 14;
+
+      // Trinity Engineering subtitle
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(77, 103, 151);
+      pdf.text("Trinity Engineering, PLLC  ·  Forensic Storm Report", margin, y);
+      y += 22;
+
+      // Property address — large headline
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.setTextColor(232, 240, 255);
+      const addrText = String(normalized.location.address || "");
+      const addrLines = pdf.splitTextToSize(addrText, pdfW - margin * 2);
+      pdf.text(addrLines, margin, y);
+      y += addrLines.length * 22 + 8;
+
+      // County / coords sub-line
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.setTextColor(140, 165, 200);
+      const coordsText = `${normalized.location.county || ""}  ·  ${parseFloat(normalized.location.lat || 0).toFixed(4)}°, ${parseFloat(normalized.location.lon || 0).toFixed(4)}°`;
+      pdf.text(coordsText, margin, y);
+      y += 24;
+
+      // Divider
+      pdf.setDrawColor(23, 50, 95);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y, pdfW - margin, y);
+      y += 22;
+
+      // Summary section header
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(120, 144, 184);
+      pdf.text("WEATHER SUMMARY", margin, y, { charSpace: 1.2 });
+      y += 16;
+
+      // Summary body — wrapped paragraph
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      pdf.setTextColor(210, 222, 240);
+      const summaryText = String(normalized.summary || "No summary available.");
+      const summaryLines = pdf.splitTextToSize(summaryText, pdfW - margin * 2);
+      const lineHeight = 14;
+      // Page-break safety: if summary doesn't fit, wrap to a new page (text stays as text)
+      for (let i = 0; i < summaryLines.length; i++) {
+        if (y > pdfH - margin - lineHeight) {
+          pdf.addPage();
+          pdf.setFillColor(3, 7, 15);
+          pdf.rect(0, 0, pdfW, pdfH, "F");
+          y = margin;
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(11);
+          pdf.setTextColor(210, 222, 240);
+        }
+        pdf.text(summaryLines[i], margin, y);
+        y += lineHeight;
       }
+      y += 14;
+
+      // Stats grid header
+      if (normalized.stats && Object.keys(normalized.stats).length > 0) {
+        if (y > pdfH - margin - 80) {
+          pdf.addPage();
+          pdf.setFillColor(3, 7, 15);
+          pdf.rect(0, 0, pdfW, pdfH, "F");
+          y = margin;
+        }
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.setTextColor(120, 144, 184);
+        pdf.text("AT-A-GLANCE", margin, y, { charSpace: 1.2 });
+        y += 16;
+
+        // Stats grid — 2 columns
+        const statEntries = Object.entries(normalized.stats);
+        const colW = (pdfW - margin * 2 - 12) / 2;
+        for (let i = 0; i < statEntries.length; i += 2) {
+          if (y > pdfH - margin - 40) {
+            pdf.addPage();
+            pdf.setFillColor(3, 7, 15);
+            pdf.rect(0, 0, pdfW, pdfH, "F");
+            y = margin;
+          }
+          for (let c = 0; c < 2; c++) {
+            const entry = statEntries[i + c];
+            if (!entry) continue;
+            const [label, value] = entry;
+            const x = margin + c * (colW + 12);
+            // Card background
+            pdf.setFillColor(8, 14, 26);
+            pdf.setDrawColor(23, 50, 95);
+            pdf.roundedRect(x, y, colW, 36, 4, 4, "FD");
+            // Label
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7);
+            pdf.setTextColor(120, 144, 184);
+            pdf.text(String(label).toUpperCase(), x + 8, y + 12, { charSpace: 1 });
+            // Value
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(13);
+            pdf.setTextColor(232, 240, 255);
+            pdf.text(String(value), x + 8, y + 28);
+          }
+          y += 42;
+        }
+        y += 8;
+      }
+
+      // Footer — Trinity copyright on cover
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+      pdf.setTextColor(77, 103, 151);
+      pdf.text(
+        "© Trinity Engineering, PLLC  ·  Daubert-Defensible Forensic Weather Report",
+        pdfW / 2,
+        pdfH - 24,
+        { align: "center" }
+      );
 
       // ── 2. 10-year NEXRAD map page ───────────────────────────────────────
       if (mapPageRef.current) {
