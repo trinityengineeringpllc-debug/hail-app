@@ -3261,14 +3261,14 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         }
       }
 
-      // ── 5. Events tables + Sources (NATIVE — light theme, real text) ──────
-      // Auto-paint a white background on every new page added from here on.
+      // ── 5. Events tables + Sources (NATIVE — dark theme, real text) ──────
+      // Auto-paint dark navy background on every new page added from here on.
       pdf.internal.events.subscribe("addPage", function () {
-        pdf.setFillColor(255, 255, 255);
+        pdf.setFillColor(3, 7, 15);
         pdf.rect(0, 0, pdfW, pdfH, "F");
       });
 
-      // Add the first events-section page (white bg painted by the subscriber)
+      // Add the first events-section page (dark bg painted by the subscriber)
       pdf.addPage();
 
       const tableMargin = 36;
@@ -3280,13 +3280,13 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       // ─── Hail Events title + footnote ────────────────────────────────────
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
-      pdf.setTextColor(15, 23, 42);
+      pdf.setTextColor(238, 243, 255);
       pdf.text("Hail Events — Past 10 Years", tableMargin, tableY);
       tableY += 12;
 
       pdf.setFont("helvetica", "italic");
       pdf.setFontSize(7.5);
-      pdf.setTextColor(100, 116, 139);
+      pdf.setTextColor(126, 162, 223);
       const hailNote = pdf.splitTextToSize(
         'All hail sizes represent maximum detection aloft by WSR-88D radar per FMH-11 Part C §2.18. Ground-level size may differ due to melting during descent.',
         pdfW - tableMargin * 2
@@ -3300,7 +3300,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       if (hailRows.length === 0) {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(10);
-        pdf.setTextColor(100, 116, 139);
+        pdf.setTextColor(126, 162, 223);
         pdf.text("No hail events returned.", tableMargin, tableY + 14);
         tableY += 30;
       } else {
@@ -3339,19 +3339,20 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             font: "helvetica",
             fontSize: 8,
             cellPadding: 5,
-            lineColor: [226, 232, 240],
+            lineColor: [16, 34, 64],
             lineWidth: 0.5,
-            textColor: [15, 23, 42],
+            textColor: [238, 243, 255],
+            fillColor: [5, 11, 20],
             overflow: "linebreak",
             valign: "top",
           },
           headStyles: {
-            fillColor: [248, 250, 252],
-            textColor: [100, 116, 139],
+            fillColor: [5, 11, 20],
+            textColor: [126, 162, 223],
             fontStyle: "bold",
             fontSize: 7.5,
             cellPadding: 6,
-            lineColor: [226, 232, 240],
+            lineColor: [16, 34, 64],
             lineWidth: 0.5,
           },
           columnStyles: {
@@ -3375,19 +3376,19 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             let yy = data.cell.y + cellPad + 7;
             const maxWidth = data.cell.width - cellPad * 2;
 
-            // Line 1 — size value (bold dark amber) + corroboration pill
+            // Line 1 — size value (bold gold) + corroboration pill
             const sizeVal = r.size || "N/A";
             pdf.setFont("helvetica", "bold");
             pdf.setFontSize(9.5);
-            pdf.setTextColor(180, 83, 9);
+            pdf.setTextColor(255, 203, 84);
             pdf.text(sizeVal, x, yy);
 
             if (r.nexradCorroboration) {
               const sizeWidth = pdf.getTextWidth(sizeVal);
               const tagLabel = r.nexradOnly ? "Radar Only" : "Corroborated";
-              const tagFill = r.nexradOnly ? [254, 243, 199] : [220, 252, 231];
-              const tagBorder = r.nexradOnly ? [252, 211, 77] : [134, 239, 172];
-              const tagInk = r.nexradOnly ? [180, 83, 9] : [21, 128, 61];
+              const tagFill = r.nexradOnly ? [41, 32, 24] : [14, 33, 25];
+              const tagBorder = r.nexradOnly ? [255, 176, 77] : [76, 175, 80];
+              const tagInk = r.nexradOnly ? [255, 176, 77] : [76, 175, 80];
 
               pdf.setFont("helvetica", "bold");
               pdf.setFontSize(6.5);
@@ -3406,12 +3407,12 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             yy += 11;
 
             if (r.nexradCorroboration) {
-              // Line 2 — NEXRAD aloft (forest green if corroborated, slate if not)
+              // Line 2 — NEXRAD aloft (bright green if corroborated, gray if not)
               const isCorr = r.nexradCorroboration.corroborated;
               pdf.setFont("helvetica", "normal");
               pdf.setFontSize(7);
-              if (isCorr) pdf.setTextColor(21, 128, 61);
-              else pdf.setTextColor(71, 85, 105);
+              if (isCorr) pdf.setTextColor(76, 175, 80);
+              else pdf.setTextColor(170, 170, 170);
               const corroSuffix = isCorr ? " (Corroborated)" : " (independent radar detection)";
               const radarSuffix = r.nexradCorroboration.radar ? ` · ${r.nexradCorroboration.radar}` : "";
               const nexradText = `NEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`;
@@ -3419,9 +3420,9 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               pdf.text(nexradLines, x, yy);
               yy += nexradLines.length * 8;
 
-              // Line 3 — POH/POSH (dark navy)
+              // Line 3 — POH/POSH (light blue)
               if (r.nexradCorroboration.probHail != null || r.nexradCorroboration.probSevere != null) {
-                pdf.setTextColor(12, 74, 110);
+                pdf.setTextColor(126, 162, 223);
                 let pohText = "";
                 if (r.nexradCorroboration.probHail != null) pohText += `POH: ${r.nexradCorroboration.probHail}%`;
                 if (r.nexradCorroboration.probHail != null && r.nexradCorroboration.probSevere != null) pohText += " · ";
@@ -3434,9 +3435,9 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               // Line 4 — beam geometry (color by reliability)
               const geo = r.nexradCorroboration.radar ? getBeamGeometry(propLatNum, propLonNum, r.nexradCorroboration.radar) : null;
               if (geo) {
-                if (geo.reliability === "reliable") pdf.setTextColor(21, 128, 61);
-                else if (geo.reliability === "marginal") pdf.setTextColor(180, 83, 9);
-                else pdf.setTextColor(185, 28, 28);
+                if (geo.reliability === "reliable") pdf.setTextColor(76, 175, 80);
+                else if (geo.reliability === "marginal") pdf.setTextColor(255, 176, 77);
+                else pdf.setTextColor(255, 107, 107);
                 const geoText = `${geo.radarId} · ${geo.distMi} mi · beam center ${geo.beamCenter} ft (${geo.reliability}) · per FMH-11 Part B`;
                 const geoLines = pdf.splitTextToSize(geoText, maxWidth);
                 pdf.text(geoLines, x, yy);
@@ -3458,14 +3459,14 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
-      pdf.setTextColor(15, 23, 42);
+      pdf.setTextColor(238, 243, 255);
       pdf.text("Other Severe Weather Events", tableMargin, tableY);
       tableY += 10;
 
       if (otherRows.length === 0) {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(10);
-        pdf.setTextColor(100, 116, 139);
+        pdf.setTextColor(126, 162, 223);
         pdf.text("No additional severe weather events returned.", tableMargin, tableY + 14);
         tableY += 30;
       } else {
@@ -3487,27 +3488,28 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             font: "helvetica",
             fontSize: 8,
             cellPadding: 5,
-            lineColor: [226, 232, 240],
+            lineColor: [16, 34, 64],
             lineWidth: 0.5,
-            textColor: [15, 23, 42],
+            textColor: [238, 243, 255],
+            fillColor: [5, 11, 20],
             overflow: "linebreak",
             valign: "top",
           },
           headStyles: {
-            fillColor: [248, 250, 252],
-            textColor: [100, 116, 139],
+            fillColor: [5, 11, 20],
+            textColor: [126, 162, 223],
             fontStyle: "bold",
             fontSize: 7.5,
             cellPadding: 6,
-            lineColor: [226, 232, 240],
+            lineColor: [16, 34, 64],
             lineWidth: 0.5,
           },
           columnStyles: {
             0: { cellWidth: 70, font: "courier", fontSize: 8.5 },
-            1: { cellWidth: 70, fontStyle: "bold", textColor: [107, 33, 168] },
+            1: { cellWidth: 70, fontStyle: "bold", textColor: [179, 149, 255] },
             2: { cellWidth: 90, font: "courier", fontSize: 8 },
             3: { cellWidth: "auto" },
-            4: { cellWidth: 60, textColor: [185, 28, 28] },
+            4: { cellWidth: 60, textColor: [255, 139, 71] },
           },
         });
 
@@ -3524,14 +3526,14 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
-      pdf.setTextColor(15, 23, 42);
+      pdf.setTextColor(238, 243, 255);
       pdf.text("Data Sources", tableMargin, tableY);
       tableY += 16;
 
       if (sourcesArr.length === 0) {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(10);
-        pdf.setTextColor(100, 116, 139);
+        pdf.setTextColor(126, 162, 223);
         pdf.text("No source links returned.", tableMargin, tableY);
       } else {
         pdf.setFont("helvetica", "normal");
@@ -3546,7 +3548,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(8.5);
           }
-          pdf.setTextColor(23, 50, 145);
+          pdf.setTextColor(126, 162, 223);
           pdf.text(wrapped, tableMargin, tableY);
           tableY += blockHeight;
         }
