@@ -3019,16 +3019,41 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       pdf.rect(0, 0, pdfW, pdfH, "F");
 
       const margin = 40;
-      let y = margin;
+      let y = margin + 30; // top breathing room before logo
 
-      // Header band — "SEVERE WEATHER INTELLIGENCE"
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.setTextColor(120, 144, 184);
-      pdf.text("SEVERE WEATHER INTELLIGENCE", margin, y, { charSpace: 1.5 });
-      y += 14;
+      // SWI logo — centered at top of cover (loads /swi-logo.png from public/)
+      try {
+        const logoData = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            resolve({
+              dataUrl: canvas.toDataURL("image/png"),
+              w: img.naturalWidth,
+              h: img.naturalHeight,
+            });
+          };
+          img.onerror = reject;
+          img.src = "/swi-logo.png";
+        });
+        const logoW = 240; // points wide on the page
+        const logoH = (logoData.h / logoData.w) * logoW;
+        const logoX = (pdfW - logoW) / 2;
+        pdf.addImage(logoData.dataUrl, "PNG", logoX, y, logoW, logoH);
+        y += logoH + 28;
+      } catch (e) {
+        // Fallback to text header if logo fails to load for any reason
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.setTextColor(120, 144, 184);
+        pdf.text("SEVERE WEATHER INTELLIGENCE", pdfW / 2, y, { charSpace: 1.5, align: "center" });
+        y += 28;
+      }
 
-      // Trinity Engineering subtitle
+      // Trinity Engineering subtitle (left-aligned breadcrumb above address)
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(8);
       pdf.setTextColor(77, 103, 151);
