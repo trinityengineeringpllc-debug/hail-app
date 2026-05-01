@@ -15,7 +15,7 @@ import { runIDW, IDWPanel, meltingChartEstimate } from "./IDWModule";
 import DatePicker from "./DatePicker";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { autoTable } from "jspdf-autotable";
 
 const CURRENT_YEAR = new Date().getFullYear();
 // ── WSR-88D Radar Site Lookup Table ──────────────────────────────────────────
