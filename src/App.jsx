@@ -3207,9 +3207,9 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       }
 
       // ── 3. DOL NEXRAD map page (only if DOL set) ─────────────────────────
-            if (idwResult && dolMapPdfRef.current) {
+        if (idwResult && dolMapPdfRef.current) {
         const dolNode = dolMapPdfRef.current;
-        const dolCanvas = await html2canvas(dolNode, {
+        const dolMapCanvas = await html2canvas(dolNode, {
           backgroundColor: theme.pageBg,
           scale: 2.5,
           useCORS: true,
