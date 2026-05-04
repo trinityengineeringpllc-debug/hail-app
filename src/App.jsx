@@ -3892,13 +3892,12 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           drawMethodNote(`Wind speed and gust derived by IDW Spatial Interpolation (Shepard, 1968) across ${r.stationCount} ASOS surface stations. Station weights = 1/d^2 (Haversine distance). ASOS instrumentation does not detect hail occurrence and is not used for hail probability — hail probability is derived exclusively from NEXRAD POSH per FMH-11 Part C §2.18. Confidence score reflects station proximity and wind data consistency only. Visual Crossing / ASOS observations are federally quality-controlled using range, temporal consistency, and neighbor comparison checks per ASOS standards (Dirks et al., 1998).`);
         }
 
-        // ════════════════════════════════════════════════════════════════
+                // ════════════════════════════════════════════════════════════════
         // SECTION 4 — CORROBORATION SUMMARY
         // ════════════════════════════════════════════════════════════════
-        {
+        if (true) {
           iy += 4;
           drawSectionHeader("CORROBORATION SUMMARY", "NOAA Storm Events Database · IEM LSR · NEXRAD SWDI");
-
           const corroLines = [];
                     if ((corroboration && corroboration.stormEventsHailCount > 0)) {
             corroLines.push({
