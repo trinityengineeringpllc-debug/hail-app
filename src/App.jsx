@@ -4296,7 +4296,15 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       const queryDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const fileName = `SWIReport.${streetAddress}.${countyName}.${queryDate}.pdf`;
 
-      pdf.save(fileName);
+      const pdfBlob = pdf.output("blob");
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const dlLink = document.createElement("a");
+      dlLink.href = pdfUrl;
+      dlLink.download = fileName;
+      document.body.appendChild(dlLink);
+      dlLink.click();
+      document.body.removeChild(dlLink);
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
     } catch (err) {
       setError(`PDF generation failed: ${err.message || err}`);
     } finally {
