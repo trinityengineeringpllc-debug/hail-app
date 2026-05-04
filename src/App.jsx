@@ -3912,15 +3912,51 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               text: `No NOAA Storm Events Database hail records for this county on ${dateOfLoss}.`,
             });
           }
-            if ((corroboration && corroboration.lsrCount > 0)) {
-            corroLines.push({
-              label: "YES",
-              fill: [14, 33, 25], border: [76, 175, 80], ink: [76, 175, 80],
-              text: `${corroboration.lsrCount} IEM Local Storm Report(s) from trained spotters within 25 miles on date of loss.`,
+                        if ((corroboration && corroboration.lsrCount > 0)) {
+              corroLines.push({ label: "YES", fill: [14,33,25], border: [76,175,80], ink: [76,175,80], text: `${corroboration.lsrCount} IEM Local Storm Report(s) from trained spotters within 25 miles on date of loss.` });
+            } else {
+              corroLines.push({ label: "N/A", fill: [16,34,64], border: [77,103,151], ink: [126,162,223], text: `No IEM Local Storm Reports within 25 miles on date of loss.` });
+            }
+            if (dolNexradHit) {
+              corroLines.push({ label: "YES", fill: [14,33,25], border: [76,175,80], ink: [76,175,80], text: `NEXRAD WSR-88D (${dolNexradHit.radar || "site unknown"}) independently detected ${dolNexradHit.maxSizeIn}" hail aloft on date of loss per FMH-11 Part C §2.18.` });
+            } else {
+              corroLines.push({ label: "NULL", fill: [41,32,24], border: [255,156,77], ink: [255,156,77], text: `No NEXRAD WSR-88D detection within search radius on date of loss. Null result only.` });
+            }
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(8);
+            const lineLayouts = corroLines.map(function(ln) {
+              const wrapped = pdf.splitTextToSize(ln.text, pdfW - idwMargin * 2 - 74);
+              return Object.assign({}, ln, { wrapped: wrapped, h: Math.max(wrapped.length * 10 + 4, 18) });
             });
+            const corrBoxH = lineLayouts.reduce(function(a, ln) { return a + ln.h; }, 0) + 16 + (lineLayouts.length - 1) * 8;
+            ensureSpace(corrBoxH);
+            pdf.setFillColor(8,14,26); pdf.setDrawColor(23,50,95); pdf.setLineWidth(0.5);
+            pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, corrBoxH, 4, 4, "FD");
+            let lineY = iy + 10;
+            for (let i = 0; i < lineLayouts.length; i++) {
+              const ln = lineLayouts[i];
+              pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
+              const pillW = pdf.getTextWidth(ln.label) + 12;
+              pdf.setFillColor(ln.fill[0],ln.fill[1],ln.fill[2]);
+              pdf.setDrawColor(ln.border[0],ln.border[1],ln.border[2]); pdf.setLineWidth(0.4);
+              pdf.roundedRect(idwMargin + 8, lineY, pillW, 11, 2, 2, "FD");
+              pdf.setTextColor(ln.ink[0],ln.ink[1],ln.ink[2]);
+              pdf.text(ln.label, idwMargin + 14, lineY + 7.5);
+              pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(126,162,223);
+              pdf.text(ln.wrapped, idwMargin + 8 + pillW + 8, lineY + 8);
+              lineY += ln.h;
+              if (i < lineLayouts.length - 1) {
+                pdf.setDrawColor(16,34,64); pdf.setLineWidth(0.3);
+                pdf.line(idwMargin + 8, lineY + 4, pdfW - idwMargin - 8, lineY + 4);
+                lineY += 8;
+              }
+            }
+            iy += corrBoxH + 10;
+          } // closes if(true) — Section 4
+        } // closes outer if(idwResult) — Section 3c
 
       // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
-      if (idwResult && idwPdfRef.current) {
+        if (idwResult && idwPdfRef.current) {
         const idwNode = idwPdfRef.current;
         const idwCanvas = await html2canvas(idwNode, {
           backgroundColor: theme.pageBg,
