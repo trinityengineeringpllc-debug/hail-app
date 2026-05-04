@@ -3207,12 +3207,11 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       }
 
       // ── 3. DOL NEXRAD map page (only if DOL set) ─────────────────────────
-      if (idwResult && dolMapPdfRef.current) {
+            if (idwResult && dolMapPdfRef.current) {
         const dolNode = dolMapPdfRef.current;
-        await new Promise(function(resolve) { setTimeout(resolve, 1200); });
-        const dolMapCanvas = await html2canvas(dolNode, {
+        const dolCanvas = await html2canvas(dolNode, {
           backgroundColor: theme.pageBg,
-          scale: 1.5,
+          scale: 2.5,
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -3225,7 +3224,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           width: PAGE_W,
           height: dolNode.scrollHeight || PAGE_H,
         });
-        const dolImg = dolMapCanvas.toDataURL("image/jpeg", 0.72);
+        const dolImg = dolMapCanvas.toDataURL("image/jpeg", 0.85);
         const dolRatio = dolMapCanvas.height / dolMapCanvas.width;
         const dolNaturalH = pdfW * dolRatio;
         pdf.addPage();
