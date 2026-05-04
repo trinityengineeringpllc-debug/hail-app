@@ -3900,7 +3900,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           drawSectionHeader("CORROBORATION SUMMARY", "NOAA Storm Events Database · IEM LSR · NEXRAD SWDI");
 
           const corroLines = [];
-          if (corroboration?.stormEventsHailCount > 0) {
+                    if ((corroboration && corroboration.stormEventsHailCount > 0)) {
             corroLines.push({
               label: "YES",
               fill: [14, 33, 25], border: [76, 175, 80], ink: [76, 175, 80],
@@ -3913,10 +3913,12 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               text: `No NOAA Storm Events Database hail records for this county on ${dateOfLoss}.`,
             });
           }
-          if (corroboration?.lsrCount > 0) {
+            if ((corroboration && corroboration.lsrCount > 0)) {
             corroLines.push({
               label: "YES",
               fill: [14, 33, 25], border: [76, 175, 80], ink: [76, 175, 80],
+              text: `${corroboration.lsrCount} IEM Local Storm Report(s) from trained spotters within 25 miles on date of loss.`,
+            });
 
       // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
       if (idwResult && idwPdfRef.current) {
