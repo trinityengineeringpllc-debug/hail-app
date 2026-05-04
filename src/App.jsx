@@ -3738,8 +3738,185 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           }
         }
 
-        // (Sections 3, 4, 5 will be added in next commit)
-      }
+                // ════════════════════════════════════════════════════════════════
+        // SECTION 3 — WIND INTERPOLATION
+        // ════════════════════════════════════════════════════════════════
+        if (idwResult) {
+          const r = idwResult;
+          iy += 4;
+          drawSectionHeader("WIND INTERPOLATION", "IDW Spatial Interpolation (Shepard, 1968) · ASOS / Visual Crossing");
+
+          drawMetricCards([
+            { label: "Wind Speed", value: r.windSpeedMph, unit: "mph", sublabel: "sustained" },
+            { label: "Wind Gust", value: r.windGustMph, unit: "mph", sublabel: "peak gust" },
+            { label: "Station Count", value: r.stationCount, unit: "", sublabel: "contributing ASOS" },
+            { label: "Nearest Station", value: `${r.nearestStationMiles} mi`, unit: "", sublabel: r.nearestStationName || "" },
+          ]);
+
+          // ── IDW confidence bar ──
+          ensureSpace(40);
+          // Header line: IDW CONFIDENCE [BADGE] ........ 87%
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7);
+          pdf.setTextColor(120, 144, 184);
+          pdf.text("IDW CONFIDENCE", idwMargin, iy + 6, { charSpace: 1.2 });
+          // Badge
+          const badgeLabel = String(r.confidenceLabel || "").toUpperCase();
+          const badgeX = idwMargin + pdf.getTextWidth("IDW CONFIDENCE") + 8;
+          let badgeFill = [14, 33, 25], badgeBorder = [76, 175, 80], badgeInk = [76, 175, 80];
+          if (r.confidence < 0.55) {
+            badgeFill = [41, 18, 18]; badgeBorder = [255, 107, 107]; badgeInk = [255, 107, 107];
+          } else if (r.confidence < 0.75) {
+            badgeFill = [41, 32, 24]; badgeBorder = [255, 176, 77]; badgeInk = [255, 176, 77];
+          }
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7);
+          const badgeW = pdf.getTextWidth(badgeLabel) + 10;
+          pdf.setFillColor(badgeFill[0], badgeFill[1], badgeFill[2]);
+          pdf.setDrawColor(badgeBorder[0], badgeBorder[1], badgeBorder[2]);
+          pdf.setLineWidth(0.4);
+          pdf.roundedRect(badgeX, iy, badgeW, 11, 1.5, 1.5, "FD");
+          pdf.setTextColor(badgeInk[0], badgeInk[1], badgeInk[2]);
+          pdf.text(badgeLabel, badgeX + 5, iy + 7.5);
+          // Pct
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(9);
+          pdf.setTextColor(141, 183, 255);
+          const pctStr = `${(r.confidence * 100).toFixed(0)}%`;
+          pdf.text(pctStr, pdfW - idwMargin, iy + 7, { align: "right" });
+          iy += 14;
+          // Progress bar bg
+          pdf.setFillColor(16, 34, 64);
+          pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, 5, 1.5, 1.5, "F");
+          // Progress fill
+          let fillColor = [76, 175, 80];
+          if (r.confidence < 0.55) fillColor = [255, 107, 107];
+          else if (r.confidence < 0.75) fillColor = [255, 176, 77];
+          const fillW = (pdfW - idwMargin * 2) * r.confidence;
+          pdf.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+          if (fillW > 3) pdf.roundedRect(idwMargin, iy, fillW, 5, 1.5, 1.5, "F");
+          iy += 9;
+          // Caveat line
+          pdf.setFont("helvetica", "italic");
+          pdf.setFontSize(6.5);
+          pdf.setTextColor(120, 144, 184);
+          pdf.text("Tiers are qualitative indicators per IDW validation literature (Shepard, 1968; Dirks et al., 1998) — not frequentist probability statements.", idwMargin, iy + 5);
+          iy += 14;
+
+          // ── Station Table ──
+          if (Array.isArray(r.stationsUsed) && r.stationsUsed.length > 0) {
+            ensureSpace(20);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(7);
+            pdf.setTextColor(120, 144, 184);
+            pdf.text("STATIONS CONTRIBUTING TO WIND ESTIMATE", idwMargin, iy, { charSpace: 1.2 });
+            iy += 8;
+
+            autoTable(pdf, {
+              head: [["Station", "Source", "Distance", "Weight"]],
+              body: r.stationsUsed.map(function (s) {
+                return [
+                  s.name || "—",
+                  s.source || "—",
+                  `${s.distanceMiles} mi`,
+                  `${s.contributionPct}%`,
+                ];
+              }),
+              startY: iy,
+              theme: "grid",
+              margin: { left: idwMargin, right: idwMargin, top: idwMargin, bottom: idwMargin },
+              styles: {
+                font: "helvetica",
+                fontSize: 8,
+                cellPadding: 4,
+                lineColor: [16, 34, 64],
+                lineWidth: 0.5,
+                textColor: [238, 243, 255],
+                fillColor: [5, 11, 20],
+                overflow: "linebreak",
+                valign: "middle",
+              },
+              headStyles: {
+                fillColor: [5, 11, 20],
+                textColor: [126, 162, 223],
+                fontStyle: "bold",
+                fontSize: 7,
+                cellPadding: 5,
+                lineColor: [16, 34, 64],
+                lineWidth: 0.5,
+              },
+              columnStyles: {
+                0: { font: "courier", fontSize: 8 },
+                1: { font: "courier", fontSize: 8, textColor: [126, 162, 223] },
+                2: { font: "courier", fontSize: 8, cellWidth: 70 },
+                3: { font: "courier", fontSize: 8, cellWidth: 70, textColor: [141, 183, 255] },
+              },
+            });
+
+            iy = pdf.lastAutoTable.finalY + 12;
+          }
+
+          // ── Metadata grid (3 columns, 2 rows) ──
+          const metaRows = [
+            ["Method", r.method || "—"],
+            ["Version", r.methodVersion || "—"],
+            ["Computed (UTC)", r.computedAt ? new Date(r.computedAt).toUTCString() : "—"],
+            ["Station Count", String(r.stationCount ?? "—")],
+            ["Nearest Station", r.nearestStationName ? `${r.nearestStationName} (${r.nearestStationMiles} mi)` : "—"],
+            ["Raw Confidence", `${(r.confidence * 100).toFixed(1)}%`],
+          ];
+          const metaBoxH = 56;
+          ensureSpace(metaBoxH + 8);
+          pdf.setFillColor(8, 14, 26);
+          pdf.setDrawColor(23, 50, 95);
+          pdf.setLineWidth(0.5);
+          pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, metaBoxH, 4, 4, "FD");
+          const metaColW = (pdfW - idwMargin * 2 - 16) / 3;
+          for (let i = 0; i < metaRows.length; i++) {
+            const col = i % 3;
+            const row = Math.floor(i / 3);
+            const cx = idwMargin + 8 + col * metaColW;
+            const cy = iy + 8 + row * 24;
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(6.5);
+            pdf.setTextColor(120, 144, 184);
+            pdf.text(metaRows[i][0].toUpperCase(), cx, cy + 6, { charSpace: 0.8 });
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7.5);
+            pdf.setTextColor(126, 162, 223);
+            const valLines = pdf.splitTextToSize(String(metaRows[i][1]), metaColW - 8);
+            pdf.text(valLines[0] || "", cx, cy + 16);
+          }
+          iy += metaBoxH + 10;
+
+          drawMethodNote(`Wind speed and gust derived by IDW Spatial Interpolation (Shepard, 1968) across ${r.stationCount} ASOS surface stations. Station weights = 1/d^2 (Haversine distance). ASOS instrumentation does not detect hail occurrence and is not used for hail probability — hail probability is derived exclusively from NEXRAD POSH per FMH-11 Part C §2.18. Confidence score reflects station proximity and wind data consistency only. Visual Crossing / ASOS observations are federally quality-controlled using range, temporal consistency, and neighbor comparison checks per ASOS standards (Dirks et al., 1998).`);
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // SECTION 4 — CORROBORATION SUMMARY
+        // ════════════════════════════════════════════════════════════════
+        {
+          iy += 4;
+          drawSectionHeader("CORROBORATION SUMMARY", "NOAA Storm Events Database · IEM LSR · NEXRAD SWDI");
+
+          const corroLines = [];
+          if (corroboration?.stormEventsHailCount > 0) {
+            corroLines.push({
+              label: "YES",
+              fill: [14, 33, 25], border: [76, 175, 80], ink: [76, 175, 80],
+              text: `${corroboration.stormEventsHailCount} NOAA Storm Events Database hail record(s) confirmed for this county on ${dateOfLoss}.`,
+            });
+          } else {
+            corroLines.push({
+              label: "N/A",
+              fill: [16, 34, 64], border: [77, 103, 151], ink: [126, 162, 223],
+              text: `No NOAA Storm Events Database hail records for this county on ${dateOfLoss}.`,
+            });
+          }
+          if (corroboration?.lsrCount > 0) {
+            corroLines.push({
+              label: "YES",
+              fill: [14, 33, 25], border: [76, 175, 80], ink: [76, 175, 80],
 
       // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
       if (idwResult && idwPdfRef.current) {
