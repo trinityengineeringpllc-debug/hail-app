@@ -3462,6 +3462,285 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         }
       }
 
+      //      // ── 3c. IDW analysis page (NATIVE — light theme on dark, real text) ──
+      if (idwResult) {
+        // Auto-paint dark navy bg on every new page added during these sections
+        pdf.internal.events.subscribe("addPage", function () {
+          pdf.setFillColor(3, 7, 15);
+          pdf.rect(0, 0, pdfW, pdfH, "F");
+        });
+
+        pdf.addPage();
+
+        const idwMargin = 36;
+        let iy = idwMargin;
+
+        // ── Page-break helper: ensures `needed` points fit before drawing ──
+        const ensureSpace = function (needed) {
+          if (iy + needed > pdfH - idwMargin) {
+            pdf.addPage();
+            iy = idwMargin;
+          }
+        };
+
+        // ── Helper: draw section header (LABEL · CITATION) ──────────────
+        const drawSectionHeader = function (label, citation) {
+          ensureSpace(28);
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(8.5);
+          pdf.setTextColor(126, 162, 223);
+          pdf.text(label, idwMargin, iy, { charSpace: 1.5 });
+          if (citation) {
+            const labelW = pdf.getTextWidth(label);
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(7);
+            pdf.setTextColor(77, 103, 151);
+            pdf.text(`  ·  ${citation}`, idwMargin + labelW + 2, iy);
+          }
+          iy += 6;
+          pdf.setDrawColor(16, 34, 64);
+          pdf.setLineWidth(0.5);
+          pdf.line(idwMargin, iy, pdfW - idwMargin, iy);
+          iy += 12;
+        };
+
+        // ── Helper: draw a row of metric cards ──────────────────────────
+        const drawMetricCards = function (cards) {
+          const gap = 8;
+          const cardH = 46;
+          const cardW = (pdfW - idwMargin * 2 - gap * (cards.length - 1)) / cards.length;
+          ensureSpace(cardH + 10);
+          for (let i = 0; i < cards.length; i++) {
+            const c = cards[i];
+            const cx = idwMargin + i * (cardW + gap);
+            // Card bg + border
+            pdf.setFillColor(8, 14, 26);
+            pdf.setDrawColor(23, 50, 95);
+            pdf.setLineWidth(0.5);
+            pdf.roundedRect(cx, iy, cardW, cardH, 4, 4, "FD");
+            // Label
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(6.5);
+            pdf.setTextColor(120, 144, 184);
+            const labelLines = pdf.splitTextToSize(String(c.label).toUpperCase(), cardW - 12);
+            pdf.text(labelLines[0] || "", cx + 6, iy + 9, { charSpace: 0.8 });
+            // Value + unit
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(15);
+            pdf.setTextColor(232, 240, 255);
+            const valStr = String(c.value);
+            const valTrunc = pdf.splitTextToSize(valStr, cardW - 12)[0] || valStr;
+            pdf.text(valTrunc, cx + 6, iy + 26);
+            if (c.unit) {
+              const valW = pdf.getTextWidth(valTrunc);
+              pdf.setFont("helvetica", "normal");
+              pdf.setFontSize(9);
+              pdf.setTextColor(126, 162, 223);
+              pdf.text(c.unit, cx + 6 + valW + 3, iy + 26);
+            }
+            // Sublabel
+            if (c.sublabel) {
+              pdf.setFont("helvetica", "normal");
+              pdf.setFontSize(6);
+              pdf.setTextColor(77, 103, 151);
+              const subLines = pdf.splitTextToSize(String(c.sublabel), cardW - 12);
+              pdf.text(subLines[0] || "", cx + 6, iy + 38);
+            }
+          }
+          iy += cardH + 10;
+        };
+
+        // ── Helper: draw a methodology note (amber-bordered callout) ────
+        const drawMethodNote = function (text) {
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          const wrapped = pdf.splitTextToSize(text, pdfW - idwMargin * 2 - 22);
+          const noteH = wrapped.length * 10 + 14;
+          ensureSpace(noteH);
+          // Box
+          pdf.setFillColor(10, 14, 24);
+          pdf.setDrawColor(122, 85, 0);
+          pdf.setLineWidth(0.5);
+          pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, noteH, 3, 3, "FD");
+          // Amber left bar
+          pdf.setFillColor(240, 180, 50);
+          pdf.rect(idwMargin, iy, 3, noteH, "F");
+          // METHODOLOGY tag in amber
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(7);
+          pdf.setTextColor(240, 180, 50);
+          pdf.text("METHODOLOGY", idwMargin + 12, iy + 11, { charSpace: 1 });
+          const tagW = pdf.getTextWidth("METHODOLOGY") + 2;
+          // Body text
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(126, 162, 223);
+          // First line aligns next to the METHODOLOGY tag, rest wrap below
+          if (wrapped.length > 0) {
+            const firstFit = pdf.splitTextToSize(wrapped.join(" "), pdfW - idwMargin * 2 - 22 - tagW - 8);
+            pdf.text(firstFit[0] || "", idwMargin + 14 + tagW + 4, iy + 11);
+            // Remaining lines wrap full width below
+            const remainingText = wrapped.join(" ").substring((firstFit[0] || "").length).trim();
+            if (remainingText) {
+              const remWrapped = pdf.splitTextToSize(remainingText, pdfW - idwMargin * 2 - 22);
+              pdf.text(remWrapped, idwMargin + 14, iy + 22);
+            }
+          }
+          iy += noteH + 10;
+        };
+
+        // ── Page header — DATE OF LOSS ANALYSIS ─────────────────────────
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(14);
+        pdf.setTextColor(255, 255, 255);
+        pdf.text("DATE OF LOSS ANALYSIS", idwMargin, iy + 10);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.setTextColor(77, 103, 151);
+        pdf.text("SITE-SPECIFIC STORM INTERPOLATION", idwMargin, iy + 22, { charSpace: 1.8 });
+
+        // Right side: NEXRAD DATA ANALYSIS / IDW INTERPOLATION ENGINE / NOAA NWS
+        pdf.setFontSize(7);
+        pdf.setTextColor(77, 103, 151);
+        const rightX = pdfW - idwMargin;
+        pdf.text("NEXRAD DATA ANALYSIS", rightX, iy + 6, { align: "right", charSpace: 0.8 });
+        pdf.text("IDW INTERPOLATION ENGINE v1.0.0", rightX, iy + 16, { align: "right", charSpace: 0.8 });
+        pdf.text("NOAA NWS · NCEI STORM EVENTS", rightX, iy + 26, { align: "right", charSpace: 0.8 });
+
+        iy += 32;
+        pdf.setDrawColor(16, 34, 64);
+        pdf.setLineWidth(0.5);
+        pdf.line(idwMargin, iy, pdfW - idwMargin, iy);
+        iy += 14;
+
+        // Module subhead
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.setTextColor(77, 103, 151);
+        pdf.text("STORM DATA MODULE  ·  MULTI-SOURCE DOL ANALYSIS v2.0", idwMargin, iy, { charSpace: 1.2 });
+        iy += 11;
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(13);
+        pdf.setTextColor(238, 243, 255);
+        pdf.text("Date-of-Loss Storm Analysis", idwMargin, iy);
+        iy += 12;
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.setTextColor(126, 162, 223);
+        const subStr = `${normalized.location.address}  ·  ${dateOfLoss}`;
+        pdf.text(subStr, idwMargin, iy);
+        iy += 18;
+
+        // ════════════════════════════════════════════════════════════════
+        // SECTION 1 — NEXRAD HAIL ANALYSIS
+        // ════════════════════════════════════════════════════════════════
+        drawSectionHeader("NEXRAD HAIL ANALYSIS", "NWS WSR-88D · FMH-11 Part C §2.18");
+
+        if (!dolNexradHit) {
+          // Null result callout
+          ensureSpace(36);
+          pdf.setFillColor(8, 14, 26);
+          pdf.setDrawColor(23, 50, 95);
+          pdf.setLineWidth(0.5);
+          pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, 32, 4, 4, "FD");
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(8);
+          pdf.setTextColor(255, 156, 77);
+          pdf.text("[NULL RESULT]", idwMargin + 8, iy + 12);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(126, 162, 223);
+          const nullText = pdf.splitTextToSize(
+            "No WSR-88D hail detection within search radius for this date of loss. This is a null result — not a zero probability statement. Absence of radar detection does not confirm absence of hail; beam geometry limitations may apply at extended range.",
+            pdfW - idwMargin * 2 - 16
+          );
+          pdf.text(nullText, idwMargin + 8, iy + 22);
+          iy += 32 + 10 + (nullText.length - 1) * 9;
+        } else {
+          const posh = dolNexradHit.probSevere;
+          const poh = dolNexradHit.probHail;
+          const maxAloft = parseFloat(dolNexradHit.maxSizeIn);
+
+          drawMetricCards([
+            { label: "Hail Probability (POSH)", value: posh != null ? posh : "—", unit: posh != null ? "%" : "", sublabel: 'prob. severe hail >= 0.75" at surface' },
+            { label: "Hail Probability (POH)", value: poh != null ? poh : "—", unit: poh != null ? "%" : "", sublabel: "prob. any hail at surface" },
+            { label: "Max Size Aloft", value: maxAloft, unit: "in", sublabel: "WSR-88D HDA — not ground level" },
+            { label: "Detecting Radar", value: dolNexradHit.radar || "—", unit: "", sublabel: "NWS WSR-88D site" },
+          ]);
+
+          // Beam geometry box
+          const beamGeo = dolNexradHit?.radar && propCoords.lat
+            ? getBeamGeometry(propCoords.lat, propCoords.lon, dolNexradHit.radar)
+            : null;
+          if (beamGeo) {
+            const boxH = 44;
+            ensureSpace(boxH + 10);
+            pdf.setFillColor(8, 14, 26);
+            pdf.setDrawColor(23, 50, 95);
+            pdf.setLineWidth(0.5);
+            pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, boxH, 4, 4, "FD");
+
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(7);
+            pdf.setTextColor(120, 144, 184);
+            pdf.text("BEAM GEOMETRY  ·  FMH-11 PART C", idwMargin + 8, iy + 11, { charSpace: 1.2 });
+
+            const cells = [
+              ["Radar Site", beamGeo.radarId],
+              ["Distance", `${beamGeo.distMi} mi`],
+              ["Beam Bottom", `${beamGeo.beamBottom} ft AGL`],
+              ["Beam Center", `${beamGeo.beamCenter} ft AGL`],
+              ["Beam Width", `${beamGeo.beamWidth} ft`],
+              ["Reliability", String(beamGeo.reliability).toUpperCase()],
+            ];
+            const cellW = (pdfW - idwMargin * 2 - 16) / cells.length;
+            for (let i = 0; i < cells.length; i++) {
+              const cx = idwMargin + 8 + i * cellW;
+              pdf.setFont("helvetica", "normal");
+              pdf.setFontSize(6.5);
+              pdf.setTextColor(120, 144, 184);
+              pdf.text(cells[i][0], cx, iy + 24);
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(9);
+              if (cells[i][0] === "Reliability") {
+                if (beamGeo.reliability === "reliable") pdf.setTextColor(76, 175, 80);
+                else if (beamGeo.reliability === "marginal") pdf.setTextColor(255, 176, 77);
+                else pdf.setTextColor(255, 107, 107);
+              } else {
+                pdf.setTextColor(232, 240, 255);
+              }
+              pdf.text(String(cells[i][1]), cx, iy + 36);
+            }
+            iy += boxH + 10;
+          }
+
+          drawMethodNote("POSH and POH values are NWS operational products derived from the WSR-88D Hail Detection Algorithm (HDA). POSH represents the probability of severe hail (>=0.75 in) at the surface, accounting for reflectivity thresholds and freezing level height. POH represents probability of any hail occurrence. These are published NWS products derived from nationally calibrated algorithms — not proprietary estimates. Per FMH-11 Part C §2.18. Max size represents detection aloft; surface size is estimated below via Knight (1981).");
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        // SECTION 2 — EST. SURFACE HAIL SIZE
+        // ════════════════════════════════════════════════════════════════
+        if (dolNexradHit && freezeLevelFt) {
+          const aloftSize = parseFloat(dolNexradHit.maxSizeIn);
+          const surfaceSize = meltingChartEstimate(aloftSize, freezeLevelFt);
+          if (surfaceSize != null) {
+            iy += 4;
+            drawSectionHeader("EST. SURFACE HAIL SIZE", "Knight (1981) NCAR Hail Melting Chart · U. of Wyoming Radiosonde Archive");
+
+            drawMetricCards([
+              { label: "Radar Size (Aloft)", value: aloftSize, unit: "in", sublabel: "WSR-88D HDA detection" },
+              { label: "Freezing Level", value: freezeLevelFt.toLocaleString(), unit: "ft", sublabel: "radiosonde 0°C interpolation" },
+              { label: "Est. Surface Size", value: surfaceSize, unit: "in", sublabel: "after melting descent" },
+            ]);
+
+            drawMethodNote("Surface hail size estimated using exponential decay model: surfaceSize = aloftSize × e^(−k × freezeLevelFt), where k = 0.000055, per Knight (1981) empirical regression from NCAR hail melting data. Freezing level derived from University of Wyoming upper-air sounding archive, interpolated linearly to 0°C isotherm. This estimate represents expected hail size at ground level after thermal descent through the warm layer below the freezing level. Actual surface size may vary with local atmospheric conditions.");
+          }
+        }
+
+        // (Sections 3, 4, 5 will be added in next commit)
+      }
+
       // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
       if (idwResult && idwPdfRef.current) {
         const idwNode = idwPdfRef.current;
