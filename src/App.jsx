@@ -3961,26 +3961,8 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           startY: tableY,
           theme: "grid",
           margin: { left: tableMargin, right: tableMargin, top: tableMargin, bottom: tableMargin },
-          styles: {
-            font: "helvetica",
-            fontSize: 8,
-            cellPadding: 5,
-            lineColor: [16, 34, 64],
-            lineWidth: 0.5,
-            textColor: [238, 243, 255],
-            fillColor: [5, 11, 20],
-            overflow: "linebreak",
-            valign: "top",
-          },
-          headStyles: {
-            fillColor: [5, 11, 20],
-            textColor: [126, 162, 223],
-            fontStyle: "bold",
-            fontSize: 7.5,
-            cellPadding: 6,
-            lineColor: [16, 34, 64],
-            lineWidth: 0.5,
-          },
+          styles: { font: "helvetica", fontSize: 8, cellPadding: 5, lineColor: pal.lineColor, lineWidth: 0.5, textColor: pal.text, fillColor: pal.fillColor, overflow: "linebreak", valign: "top" },
+          headStyles: { fillColor: pal.headFill, textColor: pal.headText, fontStyle: "bold", fontSize: 7.5, cellPadding: 6, lineColor: pal.lineColor, lineWidth: 0.5 },
           columnStyles: {
             0: { cellWidth: 70, font: "courier", fontSize: 8.5 },
             1: { cellWidth: "auto" },
@@ -4002,53 +3984,40 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             let yy = data.cell.y + cellPad + 7;
             const maxWidth = data.cell.width - cellPad * 2;
 
-            // Line 1 — size value (bold gold) + corroboration pill
             const sizeVal = r.size || "N/A";
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(9.5);
-            pdf.setTextColor(255, 203, 84);
+            pdf.setFont("helvetica", "bold"); pdf.setFontSize(9.5);
+            pdf.setTextColor(...pal.hailGold);
             pdf.text(sizeVal, x, yy);
 
             if (r.nexradCorroboration) {
               const sizeWidth = pdf.getTextWidth(sizeVal);
               const tagLabel = r.nexradOnly ? "Radar Only" : "Corroborated";
-              const tagFill = r.nexradOnly ? [41, 32, 24] : [14, 33, 25];
-              const tagBorder = r.nexradOnly ? [255, 176, 77] : [76, 175, 80];
-              const tagInk = r.nexradOnly ? [255, 176, 77] : [76, 175, 80];
-
-              pdf.setFont("helvetica", "bold");
-              pdf.setFontSize(6.5);
-              const tagTextWidth = pdf.getTextWidth(tagLabel);
-              const tagW = tagTextWidth + 8;
-              const tagH = 9;
+              const tagFill = r.nexradOnly ? pal.orangeFill : pal.greenFill;
+              const tagBorder = r.nexradOnly ? pal.orangeBorder : pal.greenBorder;
+              const tagInk = r.nexradOnly ? pal.orange : pal.green;
+              pdf.setFont("helvetica", "bold"); pdf.setFontSize(6.5);
+              const tagW = pdf.getTextWidth(tagLabel) + 8;
               const tagX = x + sizeWidth + 6;
               const tagY = yy - 7;
-              pdf.setFillColor(tagFill[0], tagFill[1], tagFill[2]);
-              pdf.setDrawColor(tagBorder[0], tagBorder[1], tagBorder[2]);
-              pdf.setLineWidth(0.4);
-              pdf.roundedRect(tagX, tagY, tagW, tagH, 1.5, 1.5, "FD");
-              pdf.setTextColor(tagInk[0], tagInk[1], tagInk[2]);
+              pdf.setFillColor(...tagFill); pdf.setDrawColor(...tagBorder); pdf.setLineWidth(0.4);
+              pdf.roundedRect(tagX, tagY, tagW, 9, 1.5, 1.5, "FD");
+              pdf.setTextColor(...tagInk);
               pdf.text(tagLabel, tagX + 4, tagY + 6.5);
             }
             yy += 11;
 
             if (r.nexradCorroboration) {
-              // Line 2 — NEXRAD aloft (bright green if corroborated, gray if not)
               const isCorr = r.nexradCorroboration.corroborated;
-              pdf.setFont("helvetica", "normal");
-              pdf.setFontSize(7);
-              if (isCorr) pdf.setTextColor(76, 175, 80);
-              else pdf.setTextColor(170, 170, 170);
+              pdf.setFont("helvetica", "normal"); pdf.setFontSize(7);
+              pdf.setTextColor(...(isCorr ? pal.green : pal.muted2));
               const corroSuffix = isCorr ? " (Corroborated)" : " (independent radar detection)";
               const radarSuffix = r.nexradCorroboration.radar ? ` · ${r.nexradCorroboration.radar}` : "";
-              const nexradText = `NEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`;
-              const nexradLines = pdf.splitTextToSize(nexradText, maxWidth);
+              const nexradLines = pdf.splitTextToSize(`NEXRAD (WSR-88D) ${r.nexradCorroboration.maxSizeIn}" aloft (per FMH-11 Part C §2.18)${corroSuffix}${radarSuffix}`, maxWidth);
               pdf.text(nexradLines, x, yy);
               yy += nexradLines.length * 8;
 
-              // Line 3 — POH/POSH (light blue)
               if (r.nexradCorroboration.probHail != null || r.nexradCorroboration.probSevere != null) {
-                pdf.setTextColor(126, 162, 223);
+                pdf.setTextColor(...pal.blueMuted);
                 let pohText = "";
                 if (r.nexradCorroboration.probHail != null) pohText += `POH: ${r.nexradCorroboration.probHail}%`;
                 if (r.nexradCorroboration.probHail != null && r.nexradCorroboration.probSevere != null) pohText += " · ";
@@ -4058,14 +4027,12 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                 yy += pohLines.length * 8;
               }
 
-              // Line 4 — beam geometry (color by reliability)
               const geo = r.nexradCorroboration.radar ? getBeamGeometry(propLatNum, propLonNum, r.nexradCorroboration.radar) : null;
               if (geo) {
-                if (geo.reliability === "reliable") pdf.setTextColor(76, 175, 80);
-                else if (geo.reliability === "marginal") pdf.setTextColor(255, 176, 77);
-                else pdf.setTextColor(255, 107, 107);
-                const geoText = `${geo.radarId} · ${geo.distMi} mi · beam center ${geo.beamCenter} ft (${geo.reliability}) · per FMH-11 Part B`;
-                const geoLines = pdf.splitTextToSize(geoText, maxWidth);
+                if (geo.reliability === "reliable") pdf.setTextColor(...pal.green);
+                else if (geo.reliability === "marginal") pdf.setTextColor(...pal.orange);
+                else pdf.setTextColor(...pal.red);
+                const geoLines = pdf.splitTextToSize(`${geo.radarId} · ${geo.distMi} mi · beam center ${geo.beamCenter} ft (${geo.reliability}) · per FMH-11 Part B`, maxWidth);
                 pdf.text(geoLines, x, yy);
               }
             }
