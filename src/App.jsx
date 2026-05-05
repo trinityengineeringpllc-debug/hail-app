@@ -3261,11 +3261,10 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         }
       }
 
-      // ── 3b. DOL data tables (NEXRAD hits + Inspections) — NATIVE dark theme ──
+      // ── 3b. DOL data tables (NEXRAD hits + Inspections) — themed ──
       if (idwResult && dateOfLoss && Array.isArray(nexradHits) && nexradHits.length > 0) {
-        // Auto-paint dark navy bg on any new pages added during these tables
         pdf.internal.events.subscribe("addPage", function () {
-          pdf.setFillColor(3, 7, 15);
+          pdf.setFillColor(...pal.pageBg);
           pdf.rect(0, 0, pdfW, pdfH, "F");
         });
 
@@ -3323,14 +3322,14 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           // Section title
           pdf.setFont("helvetica", "bold");
           pdf.setFontSize(13);
-          pdf.setTextColor(238, 243, 255);
+          pdf.setTextColor(...pal.text);
           pdf.text("DOL NEXRAD Hits — Sorted by Distance", dtMargin, dtY);
           dtY += 12;
 
           // Subtitle
           pdf.setFont("helvetica", "italic");
           pdf.setFontSize(7.5);
-          pdf.setTextColor(126, 162, 223);
+          pdf.setTextColor(...pal.muted);
           const dtNote = pdf.splitTextToSize(
             `${hitsForTable.length} NEXRAD detection${hitsForTable.length !== 1 ? "s" : ""} from one year before DOL through today. Aloft sizes per WSR-88D HDA (FMH-11 Part C §2.18). Surface sizes estimated via Knight (1981) using radiosonde freezing level.`,
             pdfW - dtMargin * 2
