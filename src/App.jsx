@@ -3058,6 +3058,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       let y = margin + 30; // top breathing room before logo
 
       // SWI logo — centered at top of cover
+      let logoDataCache = null;
       try {
         const logoData = await new Promise((resolve, reject) => {
           const img = new Image();
@@ -3074,6 +3075,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         const logoW = 320;
         const logoH = (logoData.h / logoData.w) * logoW;
         const logoX = (pdfW - logoW) / 2;
+        logoDataCache = logoData;
         pdf.addImage(logoData.dataUrl, "PNG", logoX, y, logoW, logoH);
         y += logoH + 28;
       } catch (e) {
@@ -4139,6 +4141,81 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         .replace(/^-+|-+$/g, "");
       const queryDate = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const fileName = `SWIReport.${streetAddress}.${countyName}.${queryDate}.pdf`;
+
+      // ── Disclaimer page ──────────────────────────────────────────────────
+      pdf.addPage();
+      pdf.setFillColor(...pal.pageBg);
+      pdf.rect(0, 0, pdfW, pdfH, "F");
+
+      const discMargin = 50;
+      let dy = discMargin;
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(11);
+      pdf.setTextColor(...pal.text);
+      pdf.text("DISCLAIMER & METHODOLOGICAL LIMITATIONS", discMargin, dy, { charSpace: 0.8 });
+      dy += 6;
+      pdf.setDrawColor(...pal.border);
+      pdf.setLineWidth(0.5);
+      pdf.line(discMargin, dy, pdfW - discMargin, dy);
+      dy += 16;
+
+      const discParagraphs = [
+        "The meteorological data presented in this report was obtained from the Severe Weather Intelligence (SWI) platform developed by Trinity Engineering, PLLC, and is drawn from the following federal sources: the NOAA National Centers for Environmental Information (NCEI) Storm Events Database, NEXRAD Level-III WSR-88D radar hail detection algorithms (per Federal Meteorological Handbook No. 11, Part C, §2.18), ASOS station observations via Visual Crossing, IEM Local Storm Reports, as well as empirical evidence from forensic inspections performed by Trinity Engineering, PLLC. All data sources other than PE verified inspections are publicly available, reproducible, and independently verifiable.",
+        "The forensic engineer notes the following known limitations of remotely-sensed meteorological data: (1) NEXRAD radar detects hail aloft at elevation, not at the surface — ground-level hail size may differ due to melting during descent, a function of freezing level height and fall distance; (2) NOAA Storm Events records are county-level and rely on human reporters, which may result in underreporting in some jurisdictions; (3) hail swaths are typically 1 mile wide by 5 miles long and are not static, sometimes moving at 30-50mph, meaning radar detections in the vicinity of a property do not confirm impact at the specific subject property, nor do radar detections outside the direct vicinity of the subject property necessarily rule out the possibility that the particular event may have affected the subject property.",
+        "Where Trinity Engineering has conducted a physical inspection of the subject property, empirical field observations take precedence over all remotely-sensed data. Physical evidence of hail impact — including spatter marks on oxidized or otherwise coated surfaces and dents to soft metals and other impact-receptive surfaces — constitutes direct, site-specific confirmation of hail occurrence and size that no radar or database record can replicate. Field measurements of hail dent and spatter diameter, documented by a licensed Professional Engineer, represent the highest evidentiary tier in this analysis and are not subject to the geographic and atmospheric limitations inherent in remote sensing products. Any meteorological data collected and analyzed is only intended for use as a supplement to a physical inspection.",
+      ];
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(...pal.summaryText);
+      const discLineH = 13;
+
+      for (let pi = 0; pi < discParagraphs.length; pi++) {
+        const lines = pdf.splitTextToSize(discParagraphs[pi], pdfW - discMargin * 2);
+        for (let li = 0; li < lines.length; li++) {
+          if (dy > pdfH - 80) {
+            pdf.addPage();
+            pdf.setFillColor(...pal.pageBg);
+            pdf.rect(0, 0, pdfW, pdfH, "F");
+            dy = discMargin;
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(9.5);
+            pdf.setTextColor(...pal.summaryText);
+          }
+          pdf.text(lines[li], discMargin, dy);
+          dy += discLineH;
+        }
+        dy += 10; // paragraph gap
+      }
+
+      // ── Footer on every page ─────────────────────────────────────────────
+      const footerLogoW = 120;
+      const footerLogoH = logoDataCache ? (logoDataCache.h / logoDataCache.w) * footerLogoW : 0;
+      const footerY = pdfH - 30;
+      const totalPages = pdf.internal.getNumberOfPages();
+
+      for (let fp = 1; fp <= totalPages; fp++) {
+        pdf.setPage(fp);
+        // Divider
+        pdf.setDrawColor(...pal.border);
+        pdf.setLineWidth(0.3);
+        pdf.line(40, footerY - 10, pdfW - 40, footerY - 10);
+        // Logo left-aligned
+        if (logoDataCache) {
+          pdf.addImage(logoDataCache.dataUrl, "PNG", 40, footerY - footerLogoH - 2, footerLogoW, footerLogoH);
+        }
+        // Copyright centered
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.setTextColor(...pal.muted2);
+        pdf.text(
+          "© Trinity Engineering, PLLC  ·  All Rights Reserved  ·  Daubert-Defensible Forensic Weather Report",
+          pdfW / 2, footerY, { align: "center" }
+        );
+        // Page number right-aligned
+        pdf.text(`Page ${fp} of ${totalPages}`, pdfW - 40, footerY, { align: "right" });
+      }
 
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
