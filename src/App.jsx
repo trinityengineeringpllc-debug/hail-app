@@ -4201,10 +4201,6 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         pdf.setDrawColor(...pal.border);
         pdf.setLineWidth(0.3);
         pdf.line(40, footerY - 10, pdfW - 40, footerY - 10);
-        // Logo left-aligned
-        if (logoDataCache) {
-          pdf.addImage(logoDataCache.dataUrl, "PNG", 40, footerY - footerLogoH - 2, footerLogoW, footerLogoH);
-        }
         // Copyright centered
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(7);
