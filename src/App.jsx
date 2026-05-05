@@ -1557,7 +1557,7 @@ function GradientRunButton({ onClick, loading, className = "" }) {
 }
 
 // ── Slide-to-download PDF button ───────────────────────────────────────────────
-function SlideDownloadButton({ onDownload, loading }) {
+function SlideDownloadButton({ onDownload, loading, label = "SLIDE TO DOWNLOAD ›" }) {
   // phase: "idle" | "loading" | "done"
   const [phase, setPhase] = useState("idle");
   const [isDragging, setIsDragging] = useState(false);
@@ -1630,7 +1630,7 @@ function SlideDownloadButton({ onDownload, loading }) {
             letterSpacing: "0.14em", fontFamily: "Inter, Arial, sans-serif",
             pointerEvents: "none",
           }}>
-            SLIDE TO DOWNLOAD ›
+            {label}
           </div>
         )}
 
@@ -2398,6 +2398,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLightLoading, setPdfLightLoading] = useState(false);
 
   const [dateOfLoss, setDateOfLoss] = useState("");
   const [idwResult, setIdwResult] = useState(null);
@@ -2996,12 +2997,46 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
   }
 }
 
-  async function downloadPDF() {
+  function getPdfPalette(mode) {
+    if (mode === "light") {
+      return {
+        pageBg: [255, 255, 255], cardBg: [248, 250, 252], cellBg: [255, 255, 255], noteBg: [255, 251, 235],
+        text: [15, 23, 42], headerText: [15, 23, 42], summaryText: [30, 41, 59],
+        muted: [100, 116, 139], muted2: [148, 163, 184], muted3: [71, 85, 105], white: [15, 23, 42],
+        border: [226, 232, 240], borderSoft: [226, 232, 240],
+        hailGold: [180, 83, 9], green: [21, 128, 61], greenFill: [220, 252, 231], greenBorder: [134, 239, 172],
+        orange: [180, 83, 9], orangeFill: [254, 243, 199], orangeBorder: [252, 211, 77],
+        red: [185, 28, 28], blue: [37, 99, 235], blueMuted: [100, 116, 139], cyan: [6, 182, 212],
+        purple: [109, 40, 217], amber: [180, 120, 0], amberBorder: [180, 120, 0], nullOrange: [194, 65, 12],
+        logoSrc: "/SWI_Triangle_blk.png",
+        lineColor: [226, 232, 240], fillColor: [255, 255, 255], headFill: [248, 250, 252], headText: [100, 116, 139],
+        corrobBg: [248, 250, 252],
+      };
+    }
+    return {
+      pageBg: [3, 7, 15], cardBg: [8, 14, 26], cellBg: [5, 11, 20], noteBg: [10, 14, 24],
+      text: [238, 243, 255], headerText: [232, 240, 255], summaryText: [210, 222, 240],
+      muted: [126, 162, 223], muted2: [77, 103, 151], muted3: [120, 144, 184], white: [255, 255, 255],
+      border: [23, 50, 95], borderSoft: [16, 34, 64],
+      hailGold: [255, 203, 84], green: [76, 175, 80], greenFill: [14, 33, 25], greenBorder: [76, 175, 80],
+      orange: [255, 176, 77], orangeFill: [41, 32, 24], orangeBorder: [255, 176, 77],
+      red: [255, 107, 107], blue: [141, 183, 255], blueMuted: [126, 162, 223], cyan: [0, 220, 255],
+      purple: [179, 149, 255], amber: [240, 180, 50], amberBorder: [122, 85, 0], nullOrange: [255, 156, 77],
+      logoSrc: "/SWI_Triangle_Horizontal.png",
+      lineColor: [16, 34, 64], fillColor: [5, 11, 20], headFill: [5, 11, 20], headText: [126, 162, 223],
+      corrobBg: [8, 14, 26],
+    };
+  }
+
+  async function downloadPDF(mode = "dark") {
     if (!normalized || !layoutReady || pages.length === 0) return;
 
-    setPdfLoading(true);
+    const setLoading = mode === "light" ? setPdfLightLoading : setPdfLoading;
+    setLoading(true);
 
     try {
+      const pal = getPdfPalette(mode);
+
       await document.fonts.ready;
 
       const pdf = new jsPDF({
@@ -4314,7 +4349,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
     } catch (err) {
       setError(`PDF generation failed: ${err.message || err}`);
     } finally {
-      setPdfLoading(false);
+      setLoading(false);
     }
   }
 
@@ -4464,7 +4499,10 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                 </div>
               </div>
 
-              <SlideDownloadButton onDownload={downloadPDF} loading={pdfLoading} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <SlideDownloadButton onDownload={() => downloadPDF("dark")} loading={pdfLoading} label="SLIDE FOR DARK PDF ›" />
+                <SlideDownloadButton onDownload={() => downloadPDF("light")} loading={pdfLightLoading} label="SLIDE FOR LIGHT PDF ›" />
+              </div>
             </div>
 
             <div className="hail-report-scroll">
