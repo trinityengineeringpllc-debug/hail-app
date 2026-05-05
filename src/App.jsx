@@ -3953,7 +3953,47 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             }
             iy += corrBoxH + 10;
           } // closes if(true) — Section 4
-        } // closes outer if(idwResult) — Section 3c
+
+          // ════════════════════════════════════════════════════════════════
+          // SECTION 5 — MESOSCALE DISCUSSIONS
+          // ════════════════════════════════════════════════════════════════
+          if (normalized && Array.isArray(normalized.mcds) && normalized.mcds.length > 0) {
+            iy += 4;
+            drawSectionHeader("MESOSCALE DISCUSSIONS — DATE OF LOSS", "NOAA Storm Prediction Center");
+            const mcdInnerW = pdfW - idwMargin * 2 - 16;
+            const mcdLayouts = normalized.mcds.map(function(mcd) {
+              const concerning = mcd.concerning || "Severe weather threat identified";
+              pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5);
+              const concWrapped = pdf.splitTextToSize(concerning, mcdInnerW);
+              const urlWrapped = pdf.splitTextToSize(mcd.url || "", mcdInnerW);
+              return { mcd, concWrapped, urlWrapped, h: 12 + 4 + (concWrapped.length * 9) + 4 + (urlWrapped.length * 9) };
+            });
+            const mcdBoxH = mcdLayouts.reduce(function(a,l){return a+l.h;},0) + 16 + (mcdLayouts.length-1)*8;
+            ensureSpace(mcdBoxH);
+            pdf.setFillColor(8,14,26); pdf.setDrawColor(23,50,95); pdf.setLineWidth(0.5);
+            pdf.roundedRect(idwMargin, iy, pdfW-idwMargin*2, mcdBoxH, 4, 4, "FD");
+            let mcdY = iy + 10;
+            for (let i = 0; i < mcdLayouts.length; i++) {
+              const ml = mcdLayouts[i]; const m = ml.mcd;
+              pdf.setFont("helvetica","bold"); pdf.setFontSize(8.5); pdf.setTextColor(141,183,255);
+              pdf.text(`MCD #${String(m.number).padStart(4,"0")}  ·  ${m.issued ? new Date(m.issued).toUTCString().slice(0,22) : "—"} UTC`, idwMargin+8, mcdY+6);
+              mcdY += 12;
+              pdf.setFont("helvetica","normal"); pdf.setFontSize(7.5); pdf.setTextColor(126,162,223);
+              pdf.text(ml.concWrapped, idwMargin+8, mcdY+6);
+              mcdY += ml.concWrapped.length*9+4;
+              pdf.setTextColor(118,168,255);
+              pdf.text(ml.urlWrapped, idwMargin+8, mcdY+4);
+              mcdY += ml.urlWrapped.length*9+4;
+              if (i < mcdLayouts.length-1) {
+                pdf.setDrawColor(16,34,64); pdf.setLineWidth(0.3);
+                pdf.line(idwMargin+8, mcdY+2, pdfW-idwMargin-8, mcdY+2);
+                mcdY += 8;
+              }
+            }
+            iy += mcdBoxH + 10;
+          }
+
+        } // closes if(idwResult) — Section 3c
 
       // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
         if (idwResult && idwPdfRef.current) {
