@@ -2986,7 +2986,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         return hDate === hDateFormatted;
       });
       const freezeLevelFt = freezingLevelData?.freezeLevelFt || null;
-      const idw = runIDW(lat, lon, stationsData.stations, dolNexradHit || null, 2, freezeLevelFt);
+      const idw = runIDW(lat, lon, stationsData.stations);
       setIdwResult(idw);
     }
 
