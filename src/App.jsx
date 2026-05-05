@@ -3890,11 +3890,10 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       // ── 5. Events tables + Sources (NATIVE — dark theme, real text) ──────
       // Auto-paint dark navy background on every new page added from here on.
       pdf.internal.events.subscribe("addPage", function () {
-        pdf.setFillColor(3, 7, 15);
+        pdf.setFillColor(...pal.pageBg);
         pdf.rect(0, 0, pdfW, pdfH, "F");
       });
 
-      // Add the first events-section page (dark bg painted by the subscriber)
       pdf.addPage();
 
       const tableMargin = 36;
@@ -4053,56 +4052,34 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
       pdf.setTextColor(238, 243, 255);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.setTextColor(...pal.text);
       pdf.text("Other Severe Weather Events", tableMargin, tableY);
       tableY += 10;
-
       if (otherRows.length === 0) {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(10);
-        pdf.setTextColor(126, 162, 223);
+        pdf.setTextColor(...pal.muted);
         pdf.text("No additional severe weather events returned.", tableMargin, tableY + 14);
         tableY += 30;
       } else {
         autoTable(pdf, {
           head: [["Date", "Type", "Location", "Description", "Damage"]],
           body: otherRows.map(function (r) {
-            return [
-              formatDate(r.date),
-              r.type || "N/A",
-              r.location || "N/A",
-              r.description || "N/A",
-              r.damage || "N/A",
-            ];
+            return [formatDate(r.date), r.type || "N/A", r.location || "N/A", r.description || "N/A", r.damage || "N/A"];
           }),
           startY: tableY,
           theme: "grid",
           margin: { left: tableMargin, right: tableMargin, top: tableMargin, bottom: tableMargin },
-          styles: {
-            font: "helvetica",
-            fontSize: 8,
-            cellPadding: 5,
-            lineColor: [16, 34, 64],
-            lineWidth: 0.5,
-            textColor: [238, 243, 255],
-            fillColor: [5, 11, 20],
-            overflow: "linebreak",
-            valign: "top",
-          },
-          headStyles: {
-            fillColor: [5, 11, 20],
-            textColor: [126, 162, 223],
-            fontStyle: "bold",
-            fontSize: 7.5,
-            cellPadding: 6,
-            lineColor: [16, 34, 64],
-            lineWidth: 0.5,
-          },
+          styles: { font: "helvetica", fontSize: 8, cellPadding: 5, lineColor: pal.lineColor, lineWidth: 0.5, textColor: pal.text, fillColor: pal.fillColor, overflow: "linebreak", valign: "top" },
+          headStyles: { fillColor: pal.headFill, textColor: pal.headText, fontStyle: "bold", fontSize: 7.5, cellPadding: 6, lineColor: pal.lineColor, lineWidth: 0.5 },
           columnStyles: {
             0: { cellWidth: 70, font: "courier", fontSize: 8.5 },
-            1: { cellWidth: 70, fontStyle: "bold", textColor: [179, 149, 255] },
+            1: { cellWidth: 70, fontStyle: "bold", textColor: pal.purple },
             2: { cellWidth: 90, font: "courier", fontSize: 8 },
             3: { cellWidth: "auto" },
-            4: { cellWidth: 60, textColor: [255, 139, 71] },
+            4: { cellWidth: 60, textColor: pal.orange },
           },
         });
 
@@ -4120,13 +4097,16 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(13);
       pdf.setTextColor(238, 243, 255);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(13);
+      pdf.setTextColor(...pal.text);
       pdf.text("Data Sources", tableMargin, tableY);
       tableY += 16;
 
       if (sourcesArr.length === 0) {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(10);
-        pdf.setTextColor(126, 162, 223);
+        pdf.setTextColor(...pal.muted);
         pdf.text("No source links returned.", tableMargin, tableY);
       } else {
         pdf.setFont("helvetica", "normal");
@@ -4141,7 +4121,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(8.5);
           }
-          pdf.setTextColor(126, 162, 223);
+          pdf.setTextColor(...pal.muted);
           pdf.text(wrapped, tableMargin, tableY);
           tableY += blockHeight;
         }
