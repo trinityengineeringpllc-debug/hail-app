@@ -3460,9 +3460,9 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
       //      // ── 3c. IDW analysis page (NATIVE — light theme on dark, real text) ──
       if (idwResult) {
-        // Auto-paint dark navy bg on every new page added during these sections
+        // Auto-paint themed bg on every new page added during these sections
         pdf.internal.events.subscribe("addPage", function () {
-          pdf.setFillColor(3, 7, 15);
+          pdf.setFillColor(...pal.pageBg);
           pdf.rect(0, 0, pdfW, pdfH, "F");
         });
 
@@ -3471,159 +3471,106 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         const idwMargin = 36;
         let iy = idwMargin;
 
-        // ── Page-break helper: ensures `needed` points fit before drawing ──
         const ensureSpace = function (needed) {
-          if (iy + needed > pdfH - idwMargin) {
-            pdf.addPage();
-            iy = idwMargin;
-          }
+          if (iy + needed > pdfH - idwMargin) { pdf.addPage(); iy = idwMargin; }
         };
 
-        // ── Helper: draw section header (LABEL · CITATION) ──────────────
         const drawSectionHeader = function (label, citation) {
           ensureSpace(28);
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(8.5);
-          pdf.setTextColor(126, 162, 223);
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5);
+          pdf.setTextColor(...pal.muted);
           pdf.text(label, idwMargin, iy, { charSpace: 1.5 });
           if (citation) {
             const labelW = pdf.getTextWidth(label);
-            pdf.setFont("helvetica", "normal");
-            pdf.setFontSize(7);
-            pdf.setTextColor(77, 103, 151);
+            pdf.setFont("helvetica", "normal"); pdf.setFontSize(7);
+            pdf.setTextColor(...pal.muted2);
             pdf.text(`  ·  ${citation}`, idwMargin + labelW + 2, iy);
           }
           iy += 6;
-          pdf.setDrawColor(16, 34, 64);
-          pdf.setLineWidth(0.5);
+          pdf.setDrawColor(...pal.borderSoft); pdf.setLineWidth(0.5);
           pdf.line(idwMargin, iy, pdfW - idwMargin, iy);
           iy += 12;
         };
 
-        // ── Helper: draw a row of metric cards ──────────────────────────
         const drawMetricCards = function (cards) {
-          const gap = 8;
-          const cardH = 46;
+          const gap = 8; const cardH = 46;
           const cardW = (pdfW - idwMargin * 2 - gap * (cards.length - 1)) / cards.length;
           ensureSpace(cardH + 10);
           for (let i = 0; i < cards.length; i++) {
             const c = cards[i];
             const cx = idwMargin + i * (cardW + gap);
-            // Card bg + border
-            pdf.setFillColor(8, 14, 26);
-            pdf.setDrawColor(23, 50, 95);
-            pdf.setLineWidth(0.5);
+            pdf.setFillColor(...pal.cardBg); pdf.setDrawColor(...pal.border); pdf.setLineWidth(0.5);
             pdf.roundedRect(cx, iy, cardW, cardH, 4, 4, "FD");
-            // Label
-            pdf.setFont("helvetica", "normal");
-            pdf.setFontSize(6.5);
-            pdf.setTextColor(120, 144, 184);
-            const labelLines = pdf.splitTextToSize(String(c.label).toUpperCase(), cardW - 12);
-            pdf.text(labelLines[0] || "", cx + 6, iy + 9, { charSpace: 0.8 });
-            // Value + unit
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(15);
-            pdf.setTextColor(232, 240, 255);
-            const valStr = String(c.value);
-            const valTrunc = pdf.splitTextToSize(valStr, cardW - 12)[0] || valStr;
+            pdf.setFont("helvetica", "normal"); pdf.setFontSize(6.5);
+            pdf.setTextColor(...pal.muted3);
+            pdf.text((pdf.splitTextToSize(String(c.label).toUpperCase(), cardW - 12)[0] || ""), cx + 6, iy + 9, { charSpace: 0.8 });
+            pdf.setFont("helvetica", "bold"); pdf.setFontSize(15);
+            pdf.setTextColor(...pal.headerText);
+            const valTrunc = pdf.splitTextToSize(String(c.value), cardW - 12)[0] || String(c.value);
             pdf.text(valTrunc, cx + 6, iy + 26);
             if (c.unit) {
-              const valW = pdf.getTextWidth(valTrunc);
-              pdf.setFont("helvetica", "normal");
-              pdf.setFontSize(9);
-              pdf.setTextColor(126, 162, 223);
-              pdf.text(c.unit, cx + 6 + valW + 3, iy + 26);
+              pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
+              pdf.setTextColor(...pal.muted);
+              pdf.text(c.unit, cx + 6 + pdf.getTextWidth(valTrunc) + 3, iy + 26);
             }
-            // Sublabel
             if (c.sublabel) {
-              pdf.setFont("helvetica", "normal");
-              pdf.setFontSize(6);
-              pdf.setTextColor(77, 103, 151);
-              const subLines = pdf.splitTextToSize(String(c.sublabel), cardW - 12);
-              pdf.text(subLines[0] || "", cx + 6, iy + 38);
+              pdf.setFont("helvetica", "normal"); pdf.setFontSize(6);
+              pdf.setTextColor(...pal.muted2);
+              pdf.text((pdf.splitTextToSize(String(c.sublabel), cardW - 12)[0] || ""), cx + 6, iy + 38);
             }
           }
           iy += cardH + 10;
         };
 
-        // ── Helper: draw a methodology note (amber-bordered callout) ────
         const drawMethodNote = function (text) {
-          pdf.setFont("helvetica", "normal");
-          pdf.setFontSize(8);
+          pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
           const wrapped = pdf.splitTextToSize(text, pdfW - idwMargin * 2 - 22);
           const noteH = wrapped.length * 10 + 14;
           ensureSpace(noteH);
-          // Box
-          pdf.setFillColor(10, 14, 24);
-          pdf.setDrawColor(122, 85, 0);
-          pdf.setLineWidth(0.5);
+          pdf.setFillColor(...pal.noteBg); pdf.setDrawColor(...pal.amberBorder); pdf.setLineWidth(0.5);
           pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, noteH, 3, 3, "FD");
-          // Amber left bar
-          pdf.setFillColor(240, 180, 50);
-          pdf.rect(idwMargin, iy, 3, noteH, "F");
-          // METHODOLOGY tag in amber
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(7);
-          pdf.setTextColor(240, 180, 50);
+          pdf.setFillColor(...pal.amber); pdf.rect(idwMargin, iy, 3, noteH, "F");
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
+          pdf.setTextColor(...pal.amber);
           pdf.text("METHODOLOGY", idwMargin + 12, iy + 11, { charSpace: 1 });
           const tagW = pdf.getTextWidth("METHODOLOGY") + 2;
-          // Body text
-          pdf.setFont("helvetica", "normal");
-          pdf.setFontSize(8);
-          pdf.setTextColor(126, 162, 223);
-          // First line aligns next to the METHODOLOGY tag, rest wrap below
+          pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
+          pdf.setTextColor(...pal.muted);
           if (wrapped.length > 0) {
             const firstFit = pdf.splitTextToSize(wrapped.join(" "), pdfW - idwMargin * 2 - 22 - tagW - 8);
             pdf.text(firstFit[0] || "", idwMargin + 14 + tagW + 4, iy + 11);
-            // Remaining lines wrap full width below
             const remainingText = wrapped.join(" ").substring((firstFit[0] || "").length).trim();
-            if (remainingText) {
-              const remWrapped = pdf.splitTextToSize(remainingText, pdfW - idwMargin * 2 - 22);
-              pdf.text(remWrapped, idwMargin + 14, iy + 22);
-            }
+            if (remainingText) pdf.text(pdf.splitTextToSize(remainingText, pdfW - idwMargin * 2 - 22), idwMargin + 14, iy + 22);
           }
           iy += noteH + 10;
         };
 
         // ── Page header — DATE OF LOSS ANALYSIS ─────────────────────────
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(14);
-        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(14);
+        pdf.setTextColor(...pal.text);
         pdf.text("DATE OF LOSS ANALYSIS", idwMargin, iy + 10);
-
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(7);
-        pdf.setTextColor(77, 103, 151);
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(7);
+        pdf.setTextColor(...pal.muted2);
         pdf.text("SITE-SPECIFIC STORM INTERPOLATION", idwMargin, iy + 22, { charSpace: 1.8 });
-
-        // Right side: NEXRAD DATA ANALYSIS / IDW INTERPOLATION ENGINE / NOAA NWS
-        pdf.setFontSize(7);
-        pdf.setTextColor(77, 103, 151);
         const rightX = pdfW - idwMargin;
+        pdf.setTextColor(...pal.muted2);
         pdf.text("NEXRAD DATA ANALYSIS", rightX, iy + 6, { align: "right", charSpace: 0.8 });
         pdf.text("IDW INTERPOLATION ENGINE v1.0.0", rightX, iy + 16, { align: "right", charSpace: 0.8 });
         pdf.text("NOAA NWS · NCEI STORM EVENTS", rightX, iy + 26, { align: "right", charSpace: 0.8 });
-
         iy += 32;
-        pdf.setDrawColor(16, 34, 64);
-        pdf.setLineWidth(0.5);
+        pdf.setDrawColor(...pal.borderSoft); pdf.setLineWidth(0.5);
         pdf.line(idwMargin, iy, pdfW - idwMargin, iy);
         iy += 14;
-
-        // Module subhead
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(7);
-        pdf.setTextColor(77, 103, 151);
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(7);
+        pdf.setTextColor(...pal.muted2);
         pdf.text("STORM DATA MODULE  ·  MULTI-SOURCE DOL ANALYSIS v2.0", idwMargin, iy, { charSpace: 1.2 });
         iy += 11;
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(13);
-        pdf.setTextColor(238, 243, 255);
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(13);
+        pdf.setTextColor(...pal.text);
         pdf.text("Date-of-Loss Storm Analysis", idwMargin, iy);
         iy += 12;
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(10);
-        pdf.setTextColor(126, 162, 223);
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(10);
+        pdf.setTextColor(...pal.muted);
         const subStr = `${normalized.location.address}  ·  ${dateOfLoss}`;
         pdf.text(subStr, idwMargin, iy);
         iy += 18;
@@ -3751,108 +3698,66 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
           // ── IDW confidence bar ──
           ensureSpace(40);
-          // Header line: IDW CONFIDENCE [BADGE] ........ 87%
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(7);
-          pdf.setTextColor(120, 144, 184);
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
+          pdf.setTextColor(...pal.muted3);
           pdf.text("IDW CONFIDENCE", idwMargin, iy + 6, { charSpace: 1.2 });
-          // Badge
           const badgeLabel = String(r.confidenceLabel || "").toUpperCase();
           const badgeX = idwMargin + pdf.getTextWidth("IDW CONFIDENCE") + 8;
-          let badgeFill = [14, 33, 25], badgeBorder = [76, 175, 80], badgeInk = [76, 175, 80];
-          if (r.confidence < 0.55) {
-            badgeFill = [41, 18, 18]; badgeBorder = [255, 107, 107]; badgeInk = [255, 107, 107];
-          } else if (r.confidence < 0.75) {
-            badgeFill = [41, 32, 24]; badgeBorder = [255, 176, 77]; badgeInk = [255, 176, 77];
-          }
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(7);
+          let badgeFill = pal.greenFill, badgeBorder = pal.green, badgeInk = pal.green;
+          if (r.confidence < 0.55) { badgeFill = [41,18,18]; badgeBorder = pal.red; badgeInk = pal.red; }
+          else if (r.confidence < 0.75) { badgeFill = pal.orangeFill; badgeBorder = pal.orange; badgeInk = pal.orange; }
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
           const badgeW = pdf.getTextWidth(badgeLabel) + 10;
-          pdf.setFillColor(badgeFill[0], badgeFill[1], badgeFill[2]);
-          pdf.setDrawColor(badgeBorder[0], badgeBorder[1], badgeBorder[2]);
-          pdf.setLineWidth(0.4);
+          pdf.setFillColor(...badgeFill); pdf.setDrawColor(...badgeBorder); pdf.setLineWidth(0.4);
           pdf.roundedRect(badgeX, iy, badgeW, 11, 1.5, 1.5, "FD");
-          pdf.setTextColor(badgeInk[0], badgeInk[1], badgeInk[2]);
+          pdf.setTextColor(...badgeInk);
           pdf.text(badgeLabel, badgeX + 5, iy + 7.5);
-          // Pct
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(9);
-          pdf.setTextColor(141, 183, 255);
-          const pctStr = `${(r.confidence * 100).toFixed(0)}%`;
-          pdf.text(pctStr, pdfW - idwMargin, iy + 7, { align: "right" });
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(9);
+          pdf.setTextColor(...pal.blue);
+          pdf.text(`${(r.confidence * 100).toFixed(0)}%`, pdfW - idwMargin, iy + 7, { align: "right" });
           iy += 14;
-          // Progress bar bg
-          pdf.setFillColor(16, 34, 64);
+          pdf.setFillColor(...pal.borderSoft);
           pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, 5, 1.5, 1.5, "F");
-          // Progress fill
-          let fillColor = [76, 175, 80];
-          if (r.confidence < 0.55) fillColor = [255, 107, 107];
-          else if (r.confidence < 0.75) fillColor = [255, 176, 77];
+          let fillColor = pal.green;
+          if (r.confidence < 0.55) fillColor = pal.red;
+          else if (r.confidence < 0.75) fillColor = pal.orange;
           const fillW = (pdfW - idwMargin * 2) * r.confidence;
-          pdf.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+          pdf.setFillColor(...fillColor);
           if (fillW > 3) pdf.roundedRect(idwMargin, iy, fillW, 5, 1.5, 1.5, "F");
           iy += 9;
-          // Caveat line
-          pdf.setFont("helvetica", "italic");
-          pdf.setFontSize(6.5);
-          pdf.setTextColor(120, 144, 184);
+          pdf.setFont("helvetica", "italic"); pdf.setFontSize(6.5);
+          pdf.setTextColor(...pal.muted3);
           pdf.text("Tiers are qualitative indicators per IDW validation literature (Shepard, 1968; Dirks et al., 1998) — not frequentist probability statements.", idwMargin, iy + 5);
           iy += 14;
 
           // ── Station Table ──
           if (Array.isArray(r.stationsUsed) && r.stationsUsed.length > 0) {
             ensureSpace(20);
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(7);
-            pdf.setTextColor(120, 144, 184);
+            pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
+            pdf.setTextColor(...pal.muted3);
             pdf.text("STATIONS CONTRIBUTING TO WIND ESTIMATE", idwMargin, iy, { charSpace: 1.2 });
             iy += 8;
-
             autoTable(pdf, {
               head: [["Station", "Source", "Distance", "Weight"]],
               body: r.stationsUsed.map(function (s) {
-                return [
-                  s.name || "—",
-                  s.source || "—",
-                  `${s.distanceMiles} mi`,
-                  `${s.contributionPct}%`,
-                ];
+                return [s.name || "—", s.source || "—", `${s.distanceMiles} mi`, `${s.contributionPct}%`];
               }),
               startY: iy,
               theme: "grid",
               margin: { left: idwMargin, right: idwMargin, top: idwMargin, bottom: idwMargin },
-              styles: {
-                font: "helvetica",
-                fontSize: 8,
-                cellPadding: 4,
-                lineColor: [16, 34, 64],
-                lineWidth: 0.5,
-                textColor: [238, 243, 255],
-                fillColor: [5, 11, 20],
-                overflow: "linebreak",
-                valign: "middle",
-              },
-              headStyles: {
-                fillColor: [5, 11, 20],
-                textColor: [126, 162, 223],
-                fontStyle: "bold",
-                fontSize: 7,
-                cellPadding: 5,
-                lineColor: [16, 34, 64],
-                lineWidth: 0.5,
-              },
+              styles: { font: "helvetica", fontSize: 8, cellPadding: 4, lineColor: pal.lineColor, lineWidth: 0.5, textColor: pal.text, fillColor: pal.fillColor, overflow: "linebreak", valign: "middle" },
+              headStyles: { fillColor: pal.headFill, textColor: pal.headText, fontStyle: "bold", fontSize: 7, cellPadding: 5, lineColor: pal.lineColor, lineWidth: 0.5 },
               columnStyles: {
                 0: { font: "courier", fontSize: 8 },
-                1: { font: "courier", fontSize: 8, textColor: [126, 162, 223] },
+                1: { font: "courier", fontSize: 8, textColor: pal.muted },
                 2: { font: "courier", fontSize: 8, cellWidth: 70 },
-                3: { font: "courier", fontSize: 8, cellWidth: 70, textColor: [141, 183, 255] },
+                3: { font: "courier", fontSize: 8, cellWidth: 70, textColor: pal.blue },
               },
             });
-
             iy = pdf.lastAutoTable.finalY + 12;
           }
 
-          // ── Metadata grid (3 columns, 2 rows) ──
+          // ── Metadata grid ──
           const metaRows = [
             ["Method", r.method || "—"],
             ["Version", r.methodVersion || "—"],
@@ -3863,25 +3768,19 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           ];
           const metaBoxH = 56;
           ensureSpace(metaBoxH + 8);
-          pdf.setFillColor(8, 14, 26);
-          pdf.setDrawColor(23, 50, 95);
-          pdf.setLineWidth(0.5);
+          pdf.setFillColor(...pal.cardBg); pdf.setDrawColor(...pal.border); pdf.setLineWidth(0.5);
           pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, metaBoxH, 4, 4, "FD");
           const metaColW = (pdfW - idwMargin * 2 - 16) / 3;
           for (let i = 0; i < metaRows.length; i++) {
-            const col = i % 3;
-            const row = Math.floor(i / 3);
+            const col = i % 3; const row = Math.floor(i / 3);
             const cx = idwMargin + 8 + col * metaColW;
             const cy = iy + 8 + row * 24;
-            pdf.setFont("helvetica", "bold");
-            pdf.setFontSize(6.5);
-            pdf.setTextColor(120, 144, 184);
+            pdf.setFont("helvetica", "bold"); pdf.setFontSize(6.5);
+            pdf.setTextColor(...pal.muted3);
             pdf.text(metaRows[i][0].toUpperCase(), cx, cy + 6, { charSpace: 0.8 });
-            pdf.setFont("helvetica", "normal");
-            pdf.setFontSize(7.5);
-            pdf.setTextColor(126, 162, 223);
-            const valLines = pdf.splitTextToSize(String(metaRows[i][1]), metaColW - 8);
-            pdf.text(valLines[0] || "", cx, cy + 16);
+            pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5);
+            pdf.setTextColor(...pal.muted);
+            pdf.text(pdf.splitTextToSize(String(metaRows[i][1]), metaColW - 8)[0] || "", cx, cy + 16);
           }
           iy += metaBoxH + 10;
 
