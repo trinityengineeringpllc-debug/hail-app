@@ -3215,13 +3215,11 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         const mapRatio = mapCanvas.height / mapCanvas.width;
         const mapEmbedH = pdfW * mapRatio;
         pdf.addPage();
-        pdf.setFillColor(3, 7, 15);
+        pdf.setFillColor(...pal.pageBg);
         pdf.rect(0, 0, pdfW, pdfH, "F");
         if (mapEmbedH <= pdfH) {
-          // Fits on one page — embed at natural aspect ratio
           pdf.addImage(mapImg, "JPEG", 0, 0, pdfW, mapEmbedH, undefined, "FAST");
         } else {
-          // Too tall — scale down to fit one page (don't slice maps in half)
           const scaledW = pdfH / mapRatio;
           const xOffset = (pdfW - scaledW) / 2;
           pdf.addImage(mapImg, "JPEG", xOffset, 0, scaledW, pdfH, undefined, "FAST");
@@ -3229,7 +3227,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       }
 
       // ── 3. DOL NEXRAD map page (only if DOL set) ─────────────────────────
-        if (idwResult && dolMapPdfRef.current) {
+      if (idwResult && dolMapPdfRef.current) {
         const dolNode = dolMapPdfRef.current;
         const dolMapCanvas = await html2canvas(dolNode, {
           backgroundColor: theme.pageBg,
@@ -3250,14 +3248,14 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         const dolRatio = dolMapCanvas.height / dolMapCanvas.width;
         const dolNaturalH = pdfW * dolRatio;
         pdf.addPage();
-        pdf.setFillColor(3, 7, 15);
+        pdf.setFillColor(...pal.pageBg);
         pdf.rect(0, 0, pdfW, pdfH, "F");
         if (dolNaturalH <= pdfH) {
           pdf.addImage(dolImg, "JPEG", 0, 0, pdfW, dolNaturalH, undefined, "FAST");
         } else {
           const dolPages = Math.ceil(dolNaturalH / pdfH);
           for (let p = 0; p < dolPages; p++) {
-            if (p > 0) { pdf.addPage(); pdf.setFillColor(3, 7, 15); pdf.rect(0, 0, pdfW, pdfH, "F"); }
+            if (p > 0) { pdf.addPage(); pdf.setFillColor(...pal.pageBg); pdf.rect(0, 0, pdfW, pdfH, "F"); }
             pdf.addImage(dolImg, "JPEG", 0, -(p * pdfH), pdfW, dolNaturalH, undefined, "FAST");
           }
         }
