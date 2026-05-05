@@ -3509,9 +3509,10 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             const valTrunc = pdf.splitTextToSize(String(c.value), cardW - 12)[0] || String(c.value);
             pdf.text(valTrunc, cx + 6, iy + 26);
             if (c.unit) {
+              const valW = pdf.getTextWidth(valTrunc); // measure at 15pt bold BEFORE font change
               pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
               pdf.setTextColor(...pal.muted);
-              pdf.text(c.unit, cx + 6 + pdf.getTextWidth(valTrunc) + 3, iy + 26);
+              pdf.text(c.unit, cx + 6 + valW + 3, iy + 26);
             }
             if (c.sublabel) {
               pdf.setFont("helvetica", "normal"); pdf.setFontSize(6);
@@ -3583,17 +3584,18 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         if (!dolNexradHit) {
           // Null result callout
           ensureSpace(36);
-          pdf.setFillColor(8, 14, 26);
-          pdf.setDrawColor(23, 50, 95);
+          ensureSpace(36);
+          pdf.setFillColor(...pal.cardBg);
+          pdf.setDrawColor(...pal.border);
           pdf.setLineWidth(0.5);
           pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, 32, 4, 4, "FD");
           pdf.setFont("helvetica", "bold");
           pdf.setFontSize(8);
-          pdf.setTextColor(255, 156, 77);
+          pdf.setTextColor(...pal.nullOrange);
           pdf.text("[NULL RESULT]", idwMargin + 8, iy + 12);
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(8);
-          pdf.setTextColor(126, 162, 223);
+          pdf.setTextColor(...pal.muted);
           const nullText = pdf.splitTextToSize(
             "No WSR-88D hail detection within search radius for this date of loss. This is a null result — not a zero probability statement. Absence of radar detection does not confirm absence of hail; beam geometry limitations may apply at extended range.",
             pdfW - idwMargin * 2 - 16
@@ -3795,28 +3797,20 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           drawSectionHeader("CORROBORATION SUMMARY", "NOAA Storm Events Database · IEM LSR · NEXRAD SWDI");
           const corroLines = [];
                     if ((corroboration && corroboration.stormEventsHailCount > 0)) {
-            corroLines.push({
-              label: "YES",
-              fill: [14, 33, 25], border: [76, 175, 80], ink: [76, 175, 80],
-              text: `${corroboration.stormEventsHailCount} NOAA Storm Events Database hail record(s) confirmed for this county on ${dateOfLoss}.`,
-            });
+            corroLines.push({ label: "YES", fill: pal.greenFill, border: pal.green, ink: pal.green, text: `${corroboration.stormEventsHailCount} NOAA Storm Events Database hail record(s) confirmed for this county on ${dateOfLoss}.` });
           } else {
-            corroLines.push({
-              label: "N/A",
-              fill: [16, 34, 64], border: [77, 103, 151], ink: [126, 162, 223],
-              text: `No NOAA Storm Events Database hail records for this county on ${dateOfLoss}.`,
-            });
+            corroLines.push({ label: "N/A", fill: pal.borderSoft, border: pal.muted2, ink: pal.muted, text: `No NOAA Storm Events Database hail records for this county on ${dateOfLoss}.` });
           }
-                        if ((corroboration && corroboration.lsrCount > 0)) {
-              corroLines.push({ label: "YES", fill: [14,33,25], border: [76,175,80], ink: [76,175,80], text: `${corroboration.lsrCount} IEM Local Storm Report(s) from trained spotters within 25 miles on date of loss.` });
-            } else {
-              corroLines.push({ label: "N/A", fill: [16,34,64], border: [77,103,151], ink: [126,162,223], text: `No IEM Local Storm Reports within 25 miles on date of loss.` });
-            }
-            if (dolNexradHit) {
-              corroLines.push({ label: "YES", fill: [14,33,25], border: [76,175,80], ink: [76,175,80], text: `NEXRAD WSR-88D (${dolNexradHit.radar || "site unknown"}) independently detected ${dolNexradHit.maxSizeIn}" hail aloft on date of loss per FMH-11 Part C §2.18.` });
-            } else {
-              corroLines.push({ label: "NULL", fill: [41,32,24], border: [255,156,77], ink: [255,156,77], text: `No NEXRAD WSR-88D detection within search radius on date of loss. Null result only.` });
-            }
+          if ((corroboration && corroboration.lsrCount > 0)) {
+            corroLines.push({ label: "YES", fill: pal.greenFill, border: pal.green, ink: pal.green, text: `${corroboration.lsrCount} IEM Local Storm Report(s) from trained spotters within 25 miles on date of loss.` });
+          } else {
+            corroLines.push({ label: "N/A", fill: pal.borderSoft, border: pal.muted2, ink: pal.muted, text: `No IEM Local Storm Reports within 25 miles on date of loss.` });
+          }
+          if (dolNexradHit) {
+            corroLines.push({ label: "YES", fill: pal.greenFill, border: pal.green, ink: pal.green, text: `NEXRAD WSR-88D (${dolNexradHit.radar || "site unknown"}) independently detected ${dolNexradHit.maxSizeIn}" hail aloft on date of loss per FMH-11 Part C §2.18.` });
+          } else {
+            corroLines.push({ label: "NULL", fill: pal.orangeFill, border: pal.nullOrange, ink: pal.nullOrange, text: `No NEXRAD WSR-88D detection within search radius on date of loss.` });
+          }
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(8);
             const lineLayouts = corroLines.map(function(ln) {
@@ -3825,23 +3819,24 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             });
             const corrBoxH = lineLayouts.reduce(function(a, ln) { return a + ln.h; }, 0) + 16 + (lineLayouts.length - 1) * 8;
             ensureSpace(corrBoxH);
-            pdf.setFillColor(8,14,26); pdf.setDrawColor(23,50,95); pdf.setLineWidth(0.5);
+            ensureSpace(corrBoxH);
+            pdf.setFillColor(...pal.corrobBg); pdf.setDrawColor(...pal.border); pdf.setLineWidth(0.5);
             pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, corrBoxH, 4, 4, "FD");
             let lineY = iy + 10;
             for (let i = 0; i < lineLayouts.length; i++) {
               const ln = lineLayouts[i];
               pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
               const pillW = pdf.getTextWidth(ln.label) + 12;
-              pdf.setFillColor(ln.fill[0],ln.fill[1],ln.fill[2]);
-              pdf.setDrawColor(ln.border[0],ln.border[1],ln.border[2]); pdf.setLineWidth(0.4);
+              pdf.setFillColor(...ln.fill); pdf.setDrawColor(...ln.border); pdf.setLineWidth(0.4);
               pdf.roundedRect(idwMargin + 8, lineY, pillW, 11, 2, 2, "FD");
-              pdf.setTextColor(ln.ink[0],ln.ink[1],ln.ink[2]);
+              pdf.setTextColor(...ln.ink);
               pdf.text(ln.label, idwMargin + 14, lineY + 7.5);
-              pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(126,162,223);
+              pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
+              pdf.setTextColor(...pal.muted);
               pdf.text(ln.wrapped, idwMargin + 8 + pillW + 8, lineY + 8);
               lineY += ln.h;
               if (i < lineLayouts.length - 1) {
-                pdf.setDrawColor(16,34,64); pdf.setLineWidth(0.3);
+                pdf.setDrawColor(...pal.borderSoft); pdf.setLineWidth(0.3);
                 pdf.line(idwMargin + 8, lineY + 4, pdfW - idwMargin - 8, lineY + 4);
                 lineY += 8;
               }
@@ -3865,22 +3860,22 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             });
             const mcdBoxH = mcdLayouts.reduce(function(a,l){return a+l.h;},0) + 16 + (mcdLayouts.length-1)*8;
             ensureSpace(mcdBoxH);
-            pdf.setFillColor(8,14,26); pdf.setDrawColor(23,50,95); pdf.setLineWidth(0.5);
+            pdf.setFillColor(...pal.cardBg); pdf.setDrawColor(...pal.border); pdf.setLineWidth(0.5);
             pdf.roundedRect(idwMargin, iy, pdfW-idwMargin*2, mcdBoxH, 4, 4, "FD");
             let mcdY = iy + 10;
             for (let i = 0; i < mcdLayouts.length; i++) {
               const ml = mcdLayouts[i]; const m = ml.mcd;
-              pdf.setFont("helvetica","bold"); pdf.setFontSize(8.5); pdf.setTextColor(141,183,255);
+              pdf.setFont("helvetica","bold"); pdf.setFontSize(8.5); pdf.setTextColor(...pal.blue);
               pdf.text(`MCD #${String(m.number).padStart(4,"0")}  ·  ${m.issued ? new Date(m.issued).toUTCString().slice(0,22) : "—"} UTC`, idwMargin+8, mcdY+6);
               mcdY += 12;
-              pdf.setFont("helvetica","normal"); pdf.setFontSize(7.5); pdf.setTextColor(126,162,223);
+              pdf.setFont("helvetica","normal"); pdf.setFontSize(7.5); pdf.setTextColor(...pal.muted);
               pdf.text(ml.concWrapped, idwMargin+8, mcdY+6);
               mcdY += ml.concWrapped.length*9+4;
-              pdf.setTextColor(118,168,255);
+              pdf.setTextColor(...pal.blue);
               pdf.text(ml.urlWrapped, idwMargin+8, mcdY+4);
               mcdY += ml.urlWrapped.length*9+4;
               if (i < mcdLayouts.length-1) {
-                pdf.setDrawColor(16,34,64); pdf.setLineWidth(0.3);
+                pdf.setDrawColor(...pal.borderSoft); pdf.setLineWidth(0.3);
                 pdf.line(idwMargin+8, mcdY+2, pdfW-idwMargin-8, mcdY+2);
                 mcdY += 8;
               }
