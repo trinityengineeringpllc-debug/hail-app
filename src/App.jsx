@@ -2423,7 +2423,6 @@ export default function App() {
   const dolMapPdfRef = useRef(null);
 
   const pageRefs = useRef([]);
-  const idwPdfRef = useRef(null);
 
   const introMeasureRef = useRef(null);
   const hailBaseMeasureRef = useRef(null);
@@ -3995,40 +3994,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
         } // closes if(idwResult) — Section 3c
 
-      // ── 4. IDW analysis page (only if DOL set) ───────────────────────────
-        if (idwResult && idwPdfRef.current) {
-        const idwNode = idwPdfRef.current;
-        const idwCanvas = await html2canvas(idwNode, {
-          backgroundColor: theme.pageBg,
-          scale: 1.5,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          windowWidth: PAGE_W,
-          windowHeight: PAGE_H,
-          scrollX: -window.scrollX,
-          scrollY: -window.scrollY,
-          x: 0,
-          y: 0,
-          width: PAGE_W,
-          height: idwNode.scrollHeight || PAGE_H,
-        });
-        pdf.addPage();
-        pdf.setFillColor(3, 7, 15);
-        pdf.rect(0, 0, pdfW, pdfH, "F");
-        const idwImg = idwCanvas.toDataURL("image/jpeg", 0.72);
-        const idwRatio = idwCanvas.height / idwCanvas.width;
-        const idwNaturalH = pdfW * idwRatio;
-        if (idwNaturalH <= pdfH) {
-          pdf.addImage(idwImg, "JPEG", 0, 0, pdfW, idwNaturalH, undefined, "FAST");
-        } else {
-          const idwPagesNeeded = Math.ceil(idwNaturalH / pdfH);
-          for (let p = 0; p < idwPagesNeeded; p++) {
-            if (p > 0) { pdf.addPage(); pdf.setFillColor(3, 7, 15); pdf.rect(0, 0, pdfW, pdfH, "F"); }
-            pdf.addImage(idwImg, "JPEG", 0, -(p * pdfH), pdfW, idwNaturalH, undefined, "FAST");
-          }
-        }
-      }
+     // ── 4. IDW analysis page — now rendered natively in section 3c above ──
 
       // ── 5. Events tables + Sources (NATIVE — dark theme, real text) ──────
       // Auto-paint dark navy background on every new page added from here on.
@@ -4740,58 +4706,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} inspections={hailMapInspections} mapOnly />
             </div>
             )}
-            {/* Hidden IDW PDF page — captured by html2canvas via idwPdfRef */}
-            {idwResult && (
-              <div
-                ref={idwPdfRef}
-                style={{
-                  width: PAGE_W,
-                  minHeight: PAGE_H * 2,
-                  background: theme.pageBg,
-                  color: theme.text,
-                  fontFamily: "Inter, Arial, sans-serif",
-                  padding: "32px 28px",
-                  boxSizing: "border-box",
-                }}
-              >
-                {/* PDF header on IDW page */}
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 24,
-                  paddingBottom: 16,
-                  borderBottom: `1px solid ${theme.borderSoft}`,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <img src="/swi-logo.png" alt="SWI" style={{ height: 40, width: "auto", objectFit: "contain" }} />
-                    <div>
-                      <div style={{ color: theme.white, fontWeight: 800, fontSize: 14, letterSpacing: 0.4 }}>DATE OF LOSS ANALYSIS</div>
-                      <div style={{ color: theme.muted2, fontSize: 8, letterSpacing: 2.5, fontFamily: '"IBM Plex Mono", monospace', textTransform: "uppercase", marginTop: 3 }}>Site Specific Storm Interpolation</div>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", color: theme.muted2, fontSize: 8, letterSpacing: 1.2, fontFamily: '"IBM Plex Mono", monospace', lineHeight: 1.6 }}>
-                    <div>NEXRAD DATA ANALYSIS</div>
-                    <div>IDW INTERPOLATION ENGINE v1.0.0</div>
-                    <div>NOAA NWS · NCEI STORM EVENTS</div>
-                  </div>
-                </div>
-                <IDWPanel
-                  idwResult={idwResult}
-                  nexradHit={dolNexradHit}
-                  beamGeometry={dolNexradHit?.radar && propCoords.lat ? getBeamGeometry(propCoords.lat, propCoords.lon, dolNexradHit.radar) : null}
-                  freezeLevelFt={freezeLevelFt}
-                  corroboration={corroboration}
-                  dateOfLoss={dateOfLoss}
-                  propertyAddress={normalized.location.address}
-                  mcds={normalized?.mcds || []}
-                />
-                {/* Footer */}
-                <div style={{ textAlign: "center", marginTop: 32, paddingTop: 16, borderTop: `1px solid ${theme.borderSoft}` }}>
-                  <div style={{ color: theme.white, fontSize: 12 }}>©2026 Trinity Engineering, PLLC · All Rights Reserved</div>
-                </div>
-              </div>
-            )}
+            {/* IDW PDF page now rendered natively — hidden div removed */}
           </div>
         </>
       ) : null}
