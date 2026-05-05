@@ -3419,27 +3419,22 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                 inspY = dtMargin + 18;
               }
 
-              pdf.setFont("helvetica", "bold");
-              pdf.setFontSize(13);
-              pdf.setTextColor(238, 243, 255);
+              pdf.setFont("helvetica", "bold"); pdf.setFontSize(13);
+              pdf.setTextColor(...pal.text);
               pdf.text("PE-Verified Inspections — Within 50 mi", dtMargin, inspY);
               inspY += 12;
-
-              pdf.setFont("helvetica", "italic");
-              pdf.setFontSize(7.5);
-              pdf.setTextColor(126, 162, 223);
+              pdf.setFont("helvetica", "italic"); pdf.setFontSize(7.5);
+              pdf.setTextColor(...pal.muted);
               pdf.text(
                 `${inspForTable.length} field inspection${inspForTable.length !== 1 ? "s" : ""} verified by Trinity Engineering, PLLC`,
                 dtMargin, inspY
               );
               inspY += 12;
-
               autoTable(pdf, {
                 head: [["Date", "Category", "Dents Size", "Spatter Size", "Distance"]],
                 body: inspForTable.map(function (insp) {
                   return [
-                    insp.inspectionDate,
-                    insp.category,
+                    insp.inspectionDate, insp.category,
                     insp.dentsSizeIn != null ? `${insp.dentsSizeIn}"` : "—",
                     insp.spatterSizeIn != null ? `${insp.spatterSizeIn}"` : "—",
                     `${insp.distMi.toFixed(1)} mi`,
@@ -3448,31 +3443,13 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                 startY: inspY,
                 theme: "grid",
                 margin: { left: dtMargin, right: dtMargin, top: dtMargin, bottom: dtMargin },
-                styles: {
-                  font: "helvetica",
-                  fontSize: 8,
-                  cellPadding: 5,
-                  lineColor: [16, 34, 64],
-                  lineWidth: 0.5,
-                  textColor: [238, 243, 255],
-                  fillColor: [5, 11, 20],
-                  overflow: "linebreak",
-                  valign: "top",
-                },
-                headStyles: {
-                  fillColor: [5, 11, 20],
-                  textColor: [126, 162, 223],
-                  fontStyle: "bold",
-                  fontSize: 7.5,
-                  cellPadding: 6,
-                  lineColor: [16, 34, 64],
-                  lineWidth: 0.5,
-                },
+                styles: { font: "helvetica", fontSize: 8, cellPadding: 5, lineColor: pal.lineColor, lineWidth: 0.5, textColor: pal.text, fillColor: pal.fillColor, overflow: "linebreak", valign: "top" },
+                headStyles: { fillColor: pal.headFill, textColor: pal.headText, fontStyle: "bold", fontSize: 7.5, cellPadding: 6, lineColor: pal.lineColor, lineWidth: 0.5 },
                 columnStyles: {
                   0: { cellWidth: 90, font: "courier", fontSize: 8.5 },
-                  1: { cellWidth: 60, fontStyle: "bold", textColor: [118, 168, 255] },
-                  2: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: [141, 183, 255] },
-                  3: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: [141, 183, 255] },
+                  1: { cellWidth: 60, fontStyle: "bold", textColor: pal.blue },
+                  2: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: pal.blue },
+                  3: { cellWidth: 75, font: "courier", fontSize: 8.5, textColor: pal.blue },
                   4: { cellWidth: "auto", font: "courier", fontSize: 8.5 },
                 },
               });
