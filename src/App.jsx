@@ -3051,13 +3051,13 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
 
       // ── 1. Cover page (NATIVE TEXT — real selectable text, not a screenshot) ─
       // Background
-      pdf.setFillColor(3, 7, 15);
+      pdf.setFillColor(...pal.pageBg);
       pdf.rect(0, 0, pdfW, pdfH, "F");
 
       const margin = 40;
       let y = margin + 30; // top breathing room before logo
 
-      // SWI logo — centered at top of cover (loads /swi-logo.png from public/)
+      // SWI logo — centered at top of cover
       try {
         const logoData = await new Promise((resolve, reject) => {
           const img = new Image();
@@ -3066,40 +3066,35 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
             canvas.getContext("2d").drawImage(img, 0, 0);
-            resolve({
-              dataUrl: canvas.toDataURL("image/png"),
-              w: img.naturalWidth,
-              h: img.naturalHeight,
-            });
+            resolve({ dataUrl: canvas.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight });
           };
           img.onerror = reject;
-          img.src = "/SWI_Triangle_Horizontal.png";
+          img.src = pal.logoSrc;
         });
-        const logoW = 320; // points wide on the page
+        const logoW = 320;
         const logoH = (logoData.h / logoData.w) * logoW;
         const logoX = (pdfW - logoW) / 2;
         pdf.addImage(logoData.dataUrl, "PNG", logoX, y, logoW, logoH);
         y += logoH + 28;
       } catch (e) {
-        // Fallback to text header if logo fails to load for any reason
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(11);
-        pdf.setTextColor(120, 144, 184);
+        pdf.setTextColor(...pal.muted3);
         pdf.text("SEVERE WEATHER INTELLIGENCE", pdfW / 2, y, { charSpace: 1.5, align: "center" });
         y += 28;
       }
 
-      // Trinity Engineering subtitle (left-aligned breadcrumb above address)
+      // Trinity Engineering subtitle
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
-      pdf.setTextColor(126, 162, 223);
+      pdf.setTextColor(...pal.muted);
       pdf.text("Trinity Engineering, PLLC  ·  Forensic Storm Report", margin, y);
       y += 26;
 
       // Property address — large headline
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(18);
-      pdf.setTextColor(232, 240, 255);
+      pdf.setTextColor(...pal.headerText);
       const addrText = String(normalized.location.address || "");
       const addrLines = pdf.splitTextToSize(addrText, pdfW - margin * 2);
       pdf.text(addrLines, margin, y);
@@ -3108,13 +3103,13 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       // County / coords sub-line
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(11);
-      pdf.setTextColor(126, 162, 223);
+      pdf.setTextColor(...pal.muted);
       const coordsText = `${normalized.location.county || ""}  ·  ${parseFloat(normalized.location.lat || 0).toFixed(4)}°, ${parseFloat(normalized.location.lon || 0).toFixed(4)}°`;
       pdf.text(coordsText, margin, y);
       y += 22;
 
       // Divider
-      pdf.setDrawColor(23, 50, 95);
+      pdf.setDrawColor(...pal.border);
       pdf.setLineWidth(0.5);
       pdf.line(margin, y, pdfW - margin, y);
       y += 22;
@@ -3122,54 +3117,52 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       // Summary section header
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(9);
-      pdf.setTextColor(120, 144, 184);
+      pdf.setTextColor(...pal.muted3);
       pdf.text("WEATHER SUMMARY", margin, y, { charSpace: 1.2 });
       y += 16;
 
-      // Summary body — wrapped paragraph
+      // Summary body
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(11);
-      pdf.setTextColor(210, 222, 240);
+      pdf.setTextColor(...pal.summaryText);
       const summaryText = String(normalized.summary || "No summary available.");
       const summaryLines = pdf.splitTextToSize(summaryText, pdfW - margin * 2);
       const lineHeight = 14;
-      // Page-break safety: if summary doesn't fit, wrap to a new page (text stays as text)
       for (let i = 0; i < summaryLines.length; i++) {
         if (y > pdfH - margin - lineHeight) {
           pdf.addPage();
-          pdf.setFillColor(3, 7, 15);
+          pdf.setFillColor(...pal.pageBg);
           pdf.rect(0, 0, pdfW, pdfH, "F");
           y = margin;
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(11);
-          pdf.setTextColor(210, 222, 240);
+          pdf.setTextColor(...pal.summaryText);
         }
         pdf.text(summaryLines[i], margin, y);
         y += lineHeight;
       }
       y += 14;
 
-      // Stats grid header
+      // Stats grid
       if (normalized.stats && Object.keys(normalized.stats).length > 0) {
         if (y > pdfH - margin - 80) {
           pdf.addPage();
-          pdf.setFillColor(3, 7, 15);
+          pdf.setFillColor(...pal.pageBg);
           pdf.rect(0, 0, pdfW, pdfH, "F");
           y = margin;
         }
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(9);
-        pdf.setTextColor(120, 144, 184);
+        pdf.setTextColor(...pal.muted3);
         pdf.text("AT-A-GLANCE", margin, y, { charSpace: 1.2 });
         y += 16;
 
-        // Stats grid — 2 columns
         const statEntries = Object.entries(normalized.stats);
         const colW = (pdfW - margin * 2 - 12) / 2;
         for (let i = 0; i < statEntries.length; i += 2) {
           if (y > pdfH - margin - 40) {
             pdf.addPage();
-            pdf.setFillColor(3, 7, 15);
+            pdf.setFillColor(...pal.pageBg);
             pdf.rect(0, 0, pdfW, pdfH, "F");
             y = margin;
           }
@@ -3178,19 +3171,16 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             if (!entry) continue;
             const [label, value] = entry;
             const x = margin + c * (colW + 12);
-            // Card background
-            pdf.setFillColor(8, 14, 26);
-            pdf.setDrawColor(23, 50, 95);
+            pdf.setFillColor(...pal.cardBg);
+            pdf.setDrawColor(...pal.border);
             pdf.roundedRect(x, y, colW, 36, 4, 4, "FD");
-            // Label
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(7);
-            pdf.setTextColor(120, 144, 184);
+            pdf.setTextColor(...pal.muted3);
             pdf.text(String(label).toUpperCase(), x + 8, y + 12, { charSpace: 1 });
-            // Value
             pdf.setFont("helvetica", "bold");
             pdf.setFontSize(13);
-            pdf.setTextColor(232, 240, 255);
+            pdf.setTextColor(...pal.headerText);
             pdf.text(String(value), x + 8, y + 28);
           }
           y += 42;
@@ -3198,15 +3188,13 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         y += 8;
       }
 
-      // Footer — Trinity copyright on cover
+      // Footer
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(7);
-      pdf.setTextColor(77, 103, 151);
+      pdf.setTextColor(...pal.muted2);
       pdf.text(
         "© Trinity Engineering, PLLC  ·  Daubert-Defensible Forensic Weather Report",
-        pdfW / 2,
-        pdfH - 24,
-        { align: "center" }
+        pdfW / 2, pdfH - 24, { align: "center" }
       );
 
       // ── 2. 10-year NEXRAD map page (capture at natural height, embed at aspect ratio) ──
