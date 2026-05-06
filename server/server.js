@@ -782,6 +782,24 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
       return parseFloat(clean) || null;
     }
 
+    // Helper — true when a Zoho checkbox / yes-no / damage-flag value is "set"
+    // Handles boolean true, "true", "yes", "dmg", or any non-empty string
+    // other than "no" / "-" / "false" / "0".
+    function isChecked(val) {
+      if (val === true) return true;
+      if (val === false || val == null) return false;
+      const s = String(val).trim().toLowerCase();
+      if (s === "" || s === "-" || s === "no" || s === "false" || s === "0") return false;
+      return true;
+    }
+
+    // ── Debug: log the field names on the first record so we can confirm
+    // the Zoho link names match what we expect. Look for this line once
+    // in Render logs after deploy, then this can be removed.
+    if (allRecords[0]) {
+      console.log('[hailmap] sample record keys:', Object.keys(allRecords[0]).join(', '));
+    }
+
     // Filter to 0.5° bbox and return only non-PII fields
     const propLat = parseFloat(lat);
     const propLon = parseFloat(lon);
@@ -804,16 +822,39 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
         const hailSize = (dents != null && spatter != null)
           ? Math.max(dents, spatter)
           : (dents ?? spatter ?? null);
+
+        // Tier-2 on-site findings — hail damage = ANY of the three hail-damage flags checked.
+        // Field link names assumed per Zoho convention. If logs show different names,
+        // adjust these five property accesses to match.
+        const hailDamageOnSite =
+          isChecked(r.Hail_Damage_Roof) ||
+          isChecked(r.Hail_Denting_Metal_Roof) ||
+          isChecked(r.Collateral_Hail_Damage);
+
+        // Tier-2 on-site findings — wind damage = roofing rating is anything other
+        // than "No Wind Damage" / blank, OR Collateral_Wind_Damage is checked.
+        const windRoofRaw = r.Wind_Damage_Roofing;
+        const windRoofStr = windRoofRaw == null ? "" : String(windRoofRaw).trim().toLowerCase();
+        const windRoofDamage =
+          windRoofStr !== "" &&
+          windRoofStr !== "-" &&
+          windRoofStr !== "no wind damage";
+        const windDamageOnSite = windRoofDamage || isChecked(r.Collateral_Wind_Damage);
+
         return {
           lat: rLat,
           lon: rLon,
           hailSizeIn: hailSize,
           dentsSizeIn: dents,
           spatterSizeIn: spatter,
+          hailDamageOnSite,
+          windDamageOnSite,
+          windDamageRoofing: typeof windRoofRaw === "string" ? windRoofRaw : null,
           inspectionDate: r.Appointment_Start || null,
         };
       })
-      .filter(r => r.lat && r.lon && r.hailSizeIn != null);
+      // Keep records with ANY evidence: a measured diameter OR a hail/wind damage flag
+      .filter(r => r.lat && r.lon && (r.hailSizeIn != null || r.hailDamageOnSite || r.windDamageOnSite));
 
     res.json({ count: inspections.length, inspections });
   } catch (err) {
