@@ -366,7 +366,7 @@ function HailMapPage({ data, nexradHits = [], inspections = [], preview = false 
   );
 }
 // ── DOL NEXRAD Map (recent hail history, date-colored) ───────────────────────
-function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null, inspections = [], mapOnly = false, yearsPrior = 1 }) {
+function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, freezeLevelFt = null, inspections = [], mapOnly = false }) {
   const svgRef = useRef(null);
   const [mapStatus, setMapStatus] = useState("loading");
 
@@ -380,9 +380,9 @@ function DolNexradMap({ data, nexradHits = [], dateOfLoss, idwResult = null, fre
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const dolFormatted = dateOfLoss ? `${String(dolDay).padStart(2,"0")}-${months[dolMonth-1]}-${dolYear}` : null;
 
-  // Date range: yearsPrior years before DOL to today
+  // Date range: 1 year before DOL to today
   const dolDateObj = dateOfLoss ? new Date(dolYear, dolMonth-1, dolDay) : null;
-  const oneYearBefore = dolDateObj ? new Date(dolDateObj.getTime() - yearsPrior * 365*24*60*60*1000) : null;
+  const oneYearBefore = dolDateObj ? new Date(dolDateObj.getTime() - 365*24*60*60*1000) : null;
   const today = new Date();
 
   // Filter and classify hits
@@ -2420,7 +2420,6 @@ export default function App() {
   const [layoutReady, setLayoutReady] = useState(false);
   const [nexradHits, setNexradHits] = useState([]);
   const [hailMapInspections, setHailMapInspections] = useState([]);
-  const [dolYearsPrior, setDolYearsPrior] = useState(1);
   const mapPageRef = useRef(null);
   const dolMapPdfRef = useRef(null);
 
@@ -4421,30 +4420,6 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                   propertyAddress={normalized.location.address}
                   mcds={normalized?.mcds || []}
                 />
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, marginTop: 16 }}>
-                  <div style={{ color: theme.muted2, fontSize: 9, letterSpacing: "0.12em", fontFamily: '"IBM Plex Mono", monospace', textTransform: "uppercase" }}>
-                    History Window
-                  </div>
-                  <select
-                    value={dolYearsPrior}
-                    onChange={(e) => setDolYearsPrior(Number(e.target.value))}
-                    style={{
-                      background: "#01050b",
-                      color: theme.blueBright,
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: 6,
-                      padding: "5px 10px",
-                      fontSize: 12,
-                      fontFamily: '"IBM Plex Mono", monospace',
-                      cursor: "pointer",
-                      outline: "none",
-                    }}
-                  >
-                    {[1,2,3,4,5,6,7,8,9,10].map(y => (
-                      <option key={y} value={y}>{y} Year{y > 1 ? "s" : ""} Prior</option>
-                    ))}
-                  </select>
-                </div>
                 <DolNexradMap
                   data={normalized}
                   nexradHits={nexradHits}
@@ -4452,7 +4427,6 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                   idwResult={idwResult}
                   freezeLevelFt={freezeLevelFt}
                   inspections={hailMapInspections}
-                  yearsPrior={dolYearsPrior}
                 />
               </div>
             )}
@@ -4643,7 +4617,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
             </div>
-            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} inspections={hailMapInspections} mapOnly yearsPrior={dolYearsPrior} />
+            <DolNexradMap data={normalized} nexradHits={nexradHits} dateOfLoss={dateOfLoss} idwResult={idwResult} freezeLevelFt={freezeLevelFt} inspections={hailMapInspections} mapOnly />
             </div>
             )}
             {/* IDW PDF page now rendered natively — hidden div removed */}
