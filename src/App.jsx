@@ -3478,17 +3478,17 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
         };
 
         const drawSectionHeader = function (label, citation) {
-          ensureSpace(28);
+          ensureSpace(citation ? 36 : 28);
           pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5);
           pdf.setTextColor(...pal.muted);
           pdf.text(label, idwMargin, iy, { charSpace: 1.5 });
+          iy += 10;
           if (citation) {
-            const labelW = pdf.getTextWidth(label);
-            pdf.setFont("helvetica", "normal"); pdf.setFontSize(7);
+            pdf.setFont("helvetica", "italic"); pdf.setFontSize(7);
             pdf.setTextColor(...pal.muted2);
-            pdf.text(`  ·  ${citation}`, idwMargin + labelW + 2, iy);
+            pdf.text(citation, idwMargin, iy);
+            iy += 6;
           }
-          iy += 6;
           pdf.setDrawColor(...pal.borderSoft); pdf.setLineWidth(0.5);
           pdf.line(idwMargin, iy, pdfW - idwMargin, iy);
           iy += 12;
@@ -3536,7 +3536,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           pdf.setFont("helvetica", "bold"); pdf.setFontSize(7);
           pdf.setTextColor(...pal.amber);
           pdf.text("METHODOLOGY", idwMargin + 12, iy + 11, { charSpace: 1 });
-          const tagW = pdf.getTextWidth("METHODOLOGY") + 2;
+          const tagW = pdf.getTextWidth("METHODOLOGY") + ("METHODOLOGY".length - 1) * 1 + 2;
           pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
           pdf.setTextColor(...pal.muted);
           if (wrapped.length > 0) {
@@ -3706,7 +3706,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
           pdf.setTextColor(...pal.muted3);
           pdf.text("IDW CONFIDENCE", idwMargin, iy + 6, { charSpace: 1.2 });
           const badgeLabel = String(r.confidenceLabel || "").toUpperCase();
-          const badgeX = idwMargin + pdf.getTextWidth("IDW CONFIDENCE") + 8;
+          const badgeX = idwMargin + pdf.getTextWidth("IDW CONFIDENCE") + ("IDW CONFIDENCE".length - 1) * 1.2 + 8;
           let badgeFill = pal.greenFill, badgeBorder = pal.green, badgeInk = pal.green;
           if (r.confidence < 0.55) { badgeFill = [41,18,18]; badgeBorder = pal.red; badgeInk = pal.red; }
           else if (r.confidence < 0.75) { badgeFill = pal.orangeFill; badgeBorder = pal.orange; badgeInk = pal.orange; }
