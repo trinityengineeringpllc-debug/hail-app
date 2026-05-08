@@ -3179,7 +3179,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(7);
             pdf.setTextColor(...pal.muted3);
-            pdf.text(String(label).toUpperCase(), x + 8, y + 12, { charSpace: 1 });
+            pdf.text(String(label).replace(/([A-Z])/g, " $1").trim().toUpperCase(), x + 8, y + 12, { charSpace: 1 });
             pdf.setFont("helvetica", "bold");
             pdf.setFontSize(13);
             pdf.setTextColor(...pal.headerText);
