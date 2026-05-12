@@ -3229,7 +3229,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       }
 
       // ── 3. DOL NEXRAD map page (only if DOL set) ─────────────────────────
-      if (idwResult && dolMapPdfRef.current) {
+      if (dateOfLoss && dolMapPdfRef.current) {
         const dolNode = dolMapPdfRef.current;
         const dolMapCanvas = await html2canvas(dolNode, {
           backgroundColor: theme.pageBg,
@@ -3264,7 +3264,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
       }
 
       // ── 3b. DOL data tables (NEXRAD hits + Inspections) — themed ──
-      if (idwResult && dateOfLoss && Array.isArray(nexradHits) && nexradHits.length > 0) {
+      if (dateOfLoss && Array.isArray(nexradHits) && nexradHits.length > 0) {
         pdf.internal.events.subscribe("addPage", function () {
           pdf.setFillColor(...pal.pageBg);
           pdf.rect(0, 0, pdfW, pdfH, "F");
@@ -4395,31 +4395,50 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               </div>
             </div>
 
-            {/* IDW Storm Interpolation Panel — only shows when Date of Loss is set */}
-            {idwResult && (
+            {/* DOL Analysis — shows whenever Date of Loss is set */}
+            {dateOfLoss && normalized && (
               <div style={{ marginTop: 20 }}>
-                <div
-                  style={{
-                    color: "#4d6797",
-                    fontSize: 9,
-                    letterSpacing: "0.15em",
-                    fontFamily: '"IBM Plex Mono", monospace',
-                    marginBottom: 10,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  IDW Storm Interpolation · Date of Loss Analysis
-                </div>
-                <IDWPanel
-                  idwResult={idwResult}
-                  nexradHit={dolNexradHit}
-                  beamGeometry={dolNexradHit?.radar && propCoords.lat ? getBeamGeometry(propCoords.lat, propCoords.lon, dolNexradHit.radar) : null}
-                  freezeLevelFt={freezeLevelFt}
-                  corroboration={corroboration}
-                  dateOfLoss={dateOfLoss}
-                  propertyAddress={normalized.location.address}
-                  mcds={normalized?.mcds || []}
-                />
+                {idwResult ? (
+                  <>
+                    <div
+                      style={{
+                        color: "#4d6797",
+                        fontSize: 9,
+                        letterSpacing: "0.15em",
+                        fontFamily: '"IBM Plex Mono", monospace',
+                        marginBottom: 10,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      IDW Storm Interpolation · Date of Loss Analysis
+                    </div>
+                    <IDWPanel
+                      idwResult={idwResult}
+                      nexradHit={dolNexradHit}
+                      beamGeometry={dolNexradHit?.radar && propCoords.lat ? getBeamGeometry(propCoords.lat, propCoords.lon, dolNexradHit.radar) : null}
+                      freezeLevelFt={freezeLevelFt}
+                      corroboration={corroboration}
+                      dateOfLoss={dateOfLoss}
+                      propertyAddress={normalized.location.address}
+                      mcds={normalized?.mcds || []}
+                    />
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      marginBottom: 16,
+                      background: "#050b14",
+                      border: "1px solid #17325f",
+                      borderRadius: 10,
+                      padding: "14px 18px",
+                      color: "#4d6797",
+                      fontSize: 12,
+                      fontFamily: '"IBM Plex Mono", monospace',
+                    }}
+                  >
+                    ◇ IDW interpolation requires ≥ 2 nearby stations for {dateOfLoss}. No station data was returned for this date — wind interpolation skipped, but NEXRAD hail history is shown below.
+                  </div>
+                )}
                 <DolNexradMap
                   data={normalized}
                   nexradHits={nexradHits}
@@ -4428,24 +4447,6 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
                   freezeLevelFt={freezeLevelFt}
                   inspections={hailMapInspections}
                 />
-              </div>
-            )}
-
-            {/* Date of Loss set but not enough stations returned */}
-            {dateOfLoss && !idwResult && normalized && (
-              <div
-                style={{
-                  marginTop: 20,
-                  background: "#050b14",
-                  border: "1px solid #17325f",
-                  borderRadius: 10,
-                  padding: "14px 18px",
-                  color: "#4d6797",
-                  fontSize: 12,
-                  fontFamily: '"IBM Plex Mono", monospace',
-                }}
-              >
-                ◇ IDW interpolation requires ≥ 2 nearby stations for {dateOfLoss}. No station data was returned for this date.
               </div>
             )}
           </>
@@ -4612,7 +4613,7 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
               </div>
             )}
             {/* Hidden DOL Map PDF page */}
-            {idwResult && dateOfLoss && (
+            {dateOfLoss && normalized && (
               <div ref={dolMapPdfRef} style={{ width:PAGE_W, background:theme.pageBg, padding:"28px 22px", boxSizing:"border-box" }}>
               <div style={{ color:theme.muted2, fontSize:9, letterSpacing:"0.15em", fontFamily:'"IBM Plex Mono", monospace', textTransform:"uppercase", marginBottom:12 }}>
                NEXRAD Recent Hail History · Date of Loss Analysis
