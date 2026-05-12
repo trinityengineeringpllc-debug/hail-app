@@ -278,7 +278,25 @@ app.get("/api/stations", requireAuth, async (req, res) => {
     // Visual Crossing historical weather — returns obs from nearby stations
     const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${lat},${lon}/${date}/${date}?unitGroup=us&include=obs,stations&key=${apiKey}&contentType=json`;
 
-    const vcRes = await fetch(url);
+    // Fetch with 30s timeout + one retry on timeout or 5xx (transient failures)
+    async function fetchVC(attempt) {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(30000) });
+        if (!r.ok && r.status >= 500 && attempt === 1) {
+          console.log(`[stations] VC returned ${r.status} on attempt 1, retrying...`);
+          return fetchVC(2);
+        }
+        return r;
+      } catch (e) {
+        if (attempt === 1 && (e.name === "TimeoutError" || e.name === "AbortError")) {
+          console.log(`[stations] VC timed out on attempt 1, retrying...`);
+          return fetchVC(2);
+        }
+        throw e;
+      }
+    }
+
+    const vcRes = await fetchVC(1);
     if (!vcRes.ok) {
       const errText = await vcRes.text();
       throw new Error(`Visual Crossing error ${vcRes.status}: ${errText.slice(0, 200)}`);
@@ -307,6 +325,11 @@ app.get("/api/stations", requireAuth, async (req, res) => {
       hailProbability: 0,
     }));
 
+    // Diagnostic logging — flag short returns so we can investigate in Render logs
+    if (stations.length < 2) {
+      console.log(`[stations] Only ${stations.length} station(s) returned for ${lat},${lon} on ${date}. Raw VC keys: ${Object.keys(stationsRaw).join(', ') || '(none)'}`);
+    }
+
     res.json({
       date,
       location: { lat, lon },
@@ -317,6 +340,7 @@ app.get("/api/stations", requireAuth, async (req, res) => {
       stations,
     });
   } catch (err) {
+    console.error(`[stations] Error for ${lat},${lon} on ${date}: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
