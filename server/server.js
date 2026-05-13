@@ -573,7 +573,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     let hasMore = true;
     while (hasMore) {
       const zohoRes = await fetch(
-        `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize}&fields=event_date,lat,lon,max_size,prob_hail,prob_severe,radar,wsr_id,tile1`,
+        `https://creator.zoho.com/api/v2/trinity5/swi-storm-events/report/All_Nexrad_Hail_Events?criteria=${criteria}&limit=${pageSize}&from=${(page - 1) * pageSize}&fields=event_date,lat,lon,max_size,prob_hail,prob_severe,radar,wsr_id,tile1,dbzm1`,
         { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
       );
       const zohoData = await zohoRes.json();
@@ -594,6 +594,7 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
         probHail: r.prob_hail ? parseInt(r.prob_hail) : null,
         probSevere: r.prob_severe ? parseInt(r.prob_severe) : null,
         radar: r.wsr_id || null,
+        dbzm: r.dbzm1 ? parseFloat(r.dbzm1) : null,
         lat: parseFloat(r.lat),
         lon: parseFloat(r.lon),
         source: "NEXRAD Level-3 HDA / NOAA SWDI",
