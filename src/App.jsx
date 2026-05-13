@@ -603,10 +603,8 @@ return (
           <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ffb04d" }}>
             <div style={{ width:0, height:0, borderLeft:"4px solid transparent", borderRight:"4px solid transparent", borderBottom:"8px solid #ffb04d" }} />WSR-88D
           </div>
-          </div>
         </div>
       </div>
-
       {/* Map */}
       <div style={{ background:"#020609", border:"1px solid #17325f", borderRadius:8, overflow:"hidden", marginBottom:10 }}>
           {mapStatus === "loading" && (
