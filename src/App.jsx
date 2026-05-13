@@ -597,8 +597,12 @@ return (
           <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ff6450" }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:"#ff6450" }} />Post-Loss
           </div>
+          <div style={{ display:"flex", alignItems:"center", gap:4, color:"#6e8dff" }}>
+            <div style={{ width:0, height:0, borderLeft:"4px solid transparent", borderRight:"4px solid transparent", borderBottom:"8px solid #0000CD", filter:"drop-shadow(0 0 0.5px #ffffff)" }} />PE-Verified
+          </div>
           <div style={{ display:"flex", alignItems:"center", gap:4, color:"#ffb04d" }}>
             <div style={{ width:0, height:0, borderLeft:"4px solid transparent", borderRight:"4px solid transparent", borderBottom:"8px solid #ffb04d" }} />WSR-88D
+          </div>
           </div>
         </div>
       </div>
