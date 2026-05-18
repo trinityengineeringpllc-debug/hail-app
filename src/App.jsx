@@ -2408,6 +2408,7 @@ export default function App() {
   const [propCoords, setPropCoords] = useState({ lat: null, lon: null });
   const [freezeLevelFt, setFreezeLevelFt] = useState(null);
   const [corroboration, setCorroboration] = useState(null);
+  const [meshResult, setMeshResult] = useState(null);
 
   const [authChecking, setAuthChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -2593,6 +2594,7 @@ async function handleLookup() {
   setPropCoords({ lat: null, lon: null });
   setFreezeLevelFt(null);
   setCorroboration(null);
+  setMeshResult(null);
   setNexradHits([]);
   setHailMapInspections([]);
 
@@ -2630,7 +2632,7 @@ async function handleLookup() {
     const endDate = `${currentYear}-12-31`;
 
     // ── Step 2: Fetch all three data sources in parallel ─────────────────────
-const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freezingLevelRes, hailMapRes] = await Promise.all([
+const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freezingLevelRes, hailMapRes, meshRes] = await Promise.all([
   fetch(
         `${API}/api/noaa/events?lat=${lat}&lon=${lon}&startDate=${startDate}&endDate=${endDate}`,
         { credentials: "include", headers: authHeaders }
@@ -2668,9 +2670,16 @@ const [noaaRes, lsrRes, stationsRes, stormEventsRes, nexradRes, spcmcdRes, freez
       fetch(
         `${API}/api/hailmap?lat=${lat}&lon=${lon}`,
         { credentials: "include", headers: authHeaders }
-      ),    ]);
+      ),
+      dateOfLoss
+        ? fetch(
+            `${API}/api/mesh?lat=${lat}&lon=${lon}&date=${dateOfLoss}`,
+            { credentials: "include", headers: authHeaders, signal: AbortSignal.timeout(150000) }
+          )
+        : Promise.resolve(null),
+    ]);
   
-const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData, freezingLevelData, hailMapData] = await Promise.all([
+const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData, freezingLevelData, hailMapData, meshData] = await Promise.all([
       noaaRes.json(),
       lsrRes.json(),
       stationsRes ? stationsRes.json() : null,
@@ -2679,6 +2688,7 @@ const [noaaData, lsrData, stationsData, stormEventsData, nexradData, spcmcdData,
       spcmcdRes ? spcmcdRes.json().catch(() => ({ mcds: [] })) : Promise.resolve({ mcds: [] }),
       freezingLevelRes ? freezingLevelRes.json().catch(() => ({ freezeLevelFt: null })) : Promise.resolve({ freezeLevelFt: null }),
       hailMapRes ? hailMapRes.json().catch(() => ({ inspections: [] })) : Promise.resolve({ inspections: [] }),
+      meshRes ? meshRes.json().catch(() => ({ reportable: false, status: "nonReportable" })) : Promise.resolve(null),
     ]);
 
     // — NEXRAD corroboration index ————————————————————————————
@@ -2971,6 +2981,7 @@ setDolNexradHit(dolNexradHit);
 setPropCoords({ lat, lon });
 setFreezeLevelFt(freezingLevelData?.freezeLevelFt || null);
 setCorroboration({ stormEventsHailCount: dolHailCount, lsrCount: dolLsrCount });
+setMeshResult(meshData || null);
 
 if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations.length >= 2) {
       // Use backend-formatted stations directly from /api/stations.
