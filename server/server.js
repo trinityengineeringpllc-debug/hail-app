@@ -886,6 +886,92 @@ app.get("/api/hailmap", requireAuth, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ─── MRMS MESH (auth-protected) — DOL only, strict nearest-cell daily reading ──
+// Reports MESH ONLY when the nearest-cell daily MESH_Max_1440min estimate for the
+// date of loss is finite AND >= 0.75" (same severe-hail threshold SWI applies to
+// NEXRAD POSH). All other cases (no_data, sentinel, or < 0.75") return
+// nonReportable. Never reads radiusMax or boundary/adjacent-UTC-day values.
+// Fails soft: if the MRMS service is unavailable, returns nonReportable so the
+// report still generates.
+const MESH_REPORTING_THRESHOLD_IN = 0.75;
+
+app.get("/api/mesh", requireAuth, async (req, res) => {
+  const { lat, lon, date } = req.query;
+  if (!lat || !lon || !date) {
+    return res.status(400).json({ error: "lat, lon, and date required" });
+  }
+
+  const baseUrl = process.env.MRMS_SERVICE_URL;
+  if (!baseUrl) {
+    return res.json({
+      reportable: false,
+      status: "nonReportable",
+      reason: "service_not_configured",
+      thresholdIn: MESH_REPORTING_THRESHOLD_IN,
+    });
+  }
+
+  try {
+    const url = `${baseUrl.replace(/\/+$/, "")}/mesh?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&date=${encodeURIComponent(date)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 120000);
+
+    let mrmsRes;
+    try {
+      mrmsRes = await fetch(url, {
+        headers: { "User-Agent": "SevereWeatherIntelligence/1.0 (trinitypllc.com)" },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!mrmsRes.ok) {
+      return res.json({
+        reportable: false,
+        status: "nonReportable",
+        reason: `mrms_service_${mrmsRes.status}`,
+        thresholdIn: MESH_REPORTING_THRESHOLD_IN,
+      });
+    }
+
+    const data = await mrmsRes.json();
+
+    // STRICT READING: only the date-of-loss daily product, nearest-to-property cell.
+    const dailyNearest = data?.daily?.nearest || null;
+    const rawValue =
+      dailyNearest && typeof dailyNearest.meshIn === "number"
+        ? dailyNearest.meshIn
+        : null;
+
+    const isFiniteVal = typeof rawValue === "number" && Number.isFinite(rawValue);
+    const reportable = isFiniteVal && rawValue >= MESH_REPORTING_THRESHOLD_IN;
+
+    return res.json({
+      reportable,
+      status: reportable ? "reportable" : "nonReportable",
+      meshIn: reportable ? Number(rawValue.toFixed(2)) : null,
+      thresholdIn: MESH_REPORTING_THRESHOLD_IN,
+      dateOfLoss: date,
+      // Diagnostics retained for the expert disclosure / audit, never displayed:
+      _audit: {
+        product: "MESH_Max_1440min",
+        reading: "daily.nearest",
+        rawMeshIn: isFiniteVal ? rawValue : null,
+        rawStatus: dailyNearest?.status || "no_data",
+        distanceMiles: dailyNearest?.distanceMiles ?? null,
+      },
+    });
+  } catch (err) {
+    // Soft failure: timeout, network, parse — report still generates.
+    return res.json({
+      reportable: false,
+      status: "nonReportable",
+      reason: "mrms_unreachable",
+      thresholdIn: MESH_REPORTING_THRESHOLD_IN,
+    });
+  }
+});
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
