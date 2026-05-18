@@ -364,6 +364,66 @@ function SurfaceHailSection({ nexradHit, freezeLevelFt }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SECTION — MRMS MESH CORROBORATION (DOL only)
+// Source: NOAA MRMS MESH_Max_1440min · nearest-cell, date-of-loss
+// Reported only when the nearest-cell daily estimate is finite AND ≥ 0.75"
+// (same severe-hail threshold SWI applies to NEXRAD POSH). All other cases
+// (no_data, sentinel, or < 0.75") show the non-reportable disclaimer.
+// ─────────────────────────────────────────────────────────────────────────────
+function MeshSection({ meshResult }) {
+  if (!meshResult) return null;
+
+  const threshold = meshResult.thresholdIn ?? 0.75;
+  const reportable = meshResult.reportable === true && typeof meshResult.meshIn === "number";
+
+  return (
+    <div style={sectionWrap}>
+      <SectionHeader
+        label="MRMS MESH CORROBORATION — DATE OF LOSS"
+        citation="NOAA MRMS MESH_Max_1440min · nearest grid cell · Witt et al. (1998)"
+      />
+
+      {reportable ? (
+        <>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+            <MetricCard
+              label="MRMS MESH Est. Size"
+              value={meshResult.meshIn}
+              unit="in"
+              sublabel="nearest grid cell · date of loss"
+            />
+            <MetricCard
+              label="Reporting Threshold"
+              value={threshold}
+              unit="in"
+              sublabel="severe-hail floor (matches POSH)"
+            />
+            <MetricCard
+              label="Source Product"
+              value="MESH"
+              unit=""
+              sublabel="NOAA MRMS MESH_Max_1440min"
+            />
+          </div>
+          <div style={methodNote}>
+            <span style={{ color: T.amber, fontWeight: 700 }}>◆ METHODOLOGY</span> · MRMS MESH (Maximum Estimated Size of Hail) is a NOAA radar-derived gridded estimate computed from a multi-radar reflectivity mosaic using a temperature-weighted vertical integration (Witt et al., 1998), not a spatial interpolation between ground points. The value shown is the nearest grid cell to the subject property on the daily MESH_Max_1440min product for the date of loss. MESH is reported only at or above a {threshold}" severe-hail size threshold — the same threshold this report applies to NEXRAD POSH, consistent with the historical NWS severe criterion and the shared Witt et al. (1998) SHI basis of both products. Like WSR-88D HDA, MESH measures hail aloft; surface size may differ due to melting during descent.
+          </div>
+        </>
+      ) : (
+        <div style={{
+          background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8,
+          padding: "16px", color: T.muted, fontSize: 12, lineHeight: 1.8,
+          fontFamily: "Inter, Arial, sans-serif",
+        }}>
+          <span style={{ color: "#ff9c4d", marginRight: 8, fontWeight: 700 }}>◆ NON-REPORTABLE</span>
+          NOAA MRMS MESH was evaluated for the date of loss at the subject property. The nearest grid cell returned no reportable value at or above the {threshold}-inch severe-hail reporting threshold. MRMS MESH is a gridded radar-mosaic estimate and is reported here only when it independently corroborates a severe-hail signal; a non-reportable result does not contradict the NEXRAD and ground-report evidence above.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SECTION 3 — WIND INTERPOLATION
 // Source: IDW Haversine (Shepard, 1968) · ASOS / Visual Crossing
 // ─────────────────────────────────────────────────────────────────────────────
@@ -527,6 +587,7 @@ export function DOLStormPanel({
   dateOfLoss,
   propertyAddress,
   mcds = [],
+  meshResult = null,
 }) {
   return (
     <div style={{
@@ -542,6 +603,7 @@ export function DOLStormPanel({
       </div>
 
       <NexradHailSection  nexradHit={nexradHit}  beamGeometry={beamGeometry} />
+      <MeshSection meshResult={meshResult} />
       <SurfaceHailSection nexradHit={nexradHit}  freezeLevelFt={freezeLevelFt} />
       <WindInterpolationSection idwResult={idwResult} />
       <CorroborationSection nexradHit={nexradHit} corroboration={corroboration} dateOfLoss={dateOfLoss} />
