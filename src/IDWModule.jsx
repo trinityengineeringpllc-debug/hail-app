@@ -393,7 +393,7 @@ function MeshSection({ meshResult }) {
               sublabel="nearest grid cell · date of loss"
             />
             <MetricCard
-              label="Reporting Threshold"
+              label="SWI Reporting Threshold"
               value={threshold}
               unit="in"
               sublabel="severe-hail floor (matches POSH)"
@@ -416,7 +416,7 @@ function MeshSection({ meshResult }) {
           fontFamily: "Inter, Arial, sans-serif",
         }}>
           <span style={{ color: "#ff9c4d", marginRight: 8, fontWeight: 700 }}>◆ NON-REPORTABLE</span>
-          NOAA MRMS MESH was evaluated for the date of loss at the subject property. The nearest grid cell returned no reportable value at or above the {threshold}-inch severe-hail reporting threshold. MRMS MESH is a gridded radar-mosaic estimate and is reported here only when it independently corroborates a severe-hail signal; a non-reportable result does not contradict NEXRAD and ground-report evidence.
+          NOAA MRMS MESH was evaluated for the date of loss at the subject property. The nearest grid cell returned no reportable value at or above the {threshold}-inch severe-hail SWI reporting threshold. MRMS MESH is a gridded radar-mosaic estimate and is reported here only when it independently corroborates a severe-hail signal; a non-reportable result does not contradict NEXRAD and ground-report evidence.
         </div>
       )}
     </div>
