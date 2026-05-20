@@ -3699,16 +3699,21 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             ]);
             drawMethodNote(`MRMS MESH (Maximum Estimated Size of Hail) is a NOAA radar-derived gridded estimate computed from a multi-radar reflectivity mosaic using a temperature-weighted vertical integration (Witt et al., 1998), not a spatial interpolation between ground points. The value shown is the nearest grid cell to the subject property on the daily MESH_Max_1440min product for the date of loss. MESH is reported only at or above a ${meshThreshold}" severe-hail size threshold — the same threshold this report applies to NEXRAD POSH, consistent with the historical NWS severe criterion and the shared Witt et al. (1998) SHI basis of both products. Like WSR-88D HDA, MESH measures hail aloft; surface size may differ due to melting during descent.`);
           } else {
-            ensureSpace(36);
-            ensureSpace(36);
-            pdf.setFillColor(...pal.cardBg);
-            pdf.setDrawColor(...pal.border);
-            pdf.setLineWidth(0.5);
+            } else {
+            // Set font BEFORE splitTextToSize so wrap width uses correct metrics
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(8);
             const meshNoteText = pdf.splitTextToSize(
               `NOAA MRMS MESH was evaluated for the date of loss at the subject property. The nearest grid cell returned no reportable value at or above the ${meshThreshold}-inch severe-hail reporting threshold. MRMS MESH is a gridded radar-mosaic estimate and is reported here only when it independently corroborates a severe-hail signal; a non-reportable result does not contradict the NEXRAD and ground-report evidence above.`,
               pdfW - idwMargin * 2 - 16
             );
             const meshBoxH = meshNoteText.length * 9 + 26;
+            // Reserve actual block height (plus gap to next section) so we
+            // never overflow off the bottom of a page or get clipped.
+            ensureSpace(meshBoxH + 10);
+            pdf.setFillColor(...pal.cardBg);
+            pdf.setDrawColor(...pal.border);
+            pdf.setLineWidth(0.5);
             pdf.roundedRect(idwMargin, iy, pdfW - idwMargin * 2, meshBoxH, 4, 4, "FD");
             pdf.setFont("helvetica", "bold");
             pdf.setFontSize(8);
