@@ -3699,7 +3699,6 @@ if (dateOfLoss && Array.isArray(stationsData?.stations) && stationsData.stations
             ]);
             drawMethodNote(`MRMS MESH (Maximum Estimated Size of Hail) is a NOAA radar-derived gridded estimate computed from a multi-radar reflectivity mosaic using a temperature-weighted vertical integration (Witt et al., 1998), not a spatial interpolation between ground points. The value shown is the nearest grid cell to the subject property on the daily MESH_Max_1440min product for the date of loss. MESH is reported only at or above a ${meshThreshold}" severe-hail size threshold — the same threshold this report applies to NEXRAD POSH, consistent with the historical NWS severe criterion and the shared Witt et al. (1998) SHI basis of both products. Like WSR-88D HDA, MESH measures hail aloft; surface size may differ due to melting during descent.`);
           } else {
-            } else {
             // Set font BEFORE splitTextToSize so wrap width uses correct metrics
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(8);
