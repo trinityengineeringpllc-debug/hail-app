@@ -493,9 +493,19 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
   try {
     const endYear = new Date().getFullYear();
     const startYear = endYear - 10;
-    const tileLat = Math.floor(parseFloat(lat));
-    const tileLon = Math.floor(parseFloat(lon));
-    const tileKey = `${tileLat}_${tileLon}`;
+    // Search bbox is ±0.5°, but tiles are 1°×1° — a property near a tile edge
+    // has a bbox that extends into adjacent tiles. Compute every tile the bbox
+    // overlaps (up to 4, when property is near a tile corner) so we don't miss
+    // data on whichever side of the property is close to a tile boundary.
+    const propLatNum = parseFloat(lat);
+    const propLonNum = parseFloat(lon);
+    const tileSet = new Set();
+    for (const dLat of [-0.5, 0.5]) {
+      for (const dLon of [-0.5, 0.5]) {
+        tileSet.add(`${Math.floor(propLatNum + dLat)}_${Math.floor(propLonNum + dLon)}`);
+      }
+    }
+    const tileKeys = Array.from(tileSet);
     const latMin = parseFloat(lat) - 0.5;
     const latMax = parseFloat(lat) + 0.5;
     const lonMin = parseFloat(lon) - 0.5;
@@ -566,7 +576,9 @@ app.get("/api/nexrad", requireAuth, async (req, res) => {
     const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
     if (!accessToken) throw new Error("Failed to get Zoho access token");
-    const criteria = encodeURIComponent(`tile1 = "${tileKey}"`);
+    const criteria = encodeURIComponent(
+      tileKeys.map(k => `tile1 = "${k}"`).join(" || ")
+    );
     let allRecords = [];
     let page = 1;
     const pageSize = 200;
